@@ -1,0 +1,29 @@
+{
+  "name": "@integrations/anthropic",
+  "version": "0.1.0",
+  "description": "Production-ready Anthropic Claude API client",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["anthropic", "claude", "api", "llm", "ai"],
+  "license": "LicenseRef-LLM-DevOps-Permanent",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "msw": "^2.0.0"
+  }
+}

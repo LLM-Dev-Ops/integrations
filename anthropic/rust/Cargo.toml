@@ -1,0 +1,66 @@
+[package]
+name = "integrations-anthropic"
+version = "0.1.0"
+edition = "2021"
+description = "Production-ready Anthropic Claude API client"
+license = "LicenseRef-LLM-DevOps-Permanent"
+repository = "https://github.com/integrations/anthropic"
+keywords = ["anthropic", "claude", "api", "llm", "ai"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["macros", "rt-multi-thread", "time", "sync"] }
+futures = "0.3"
+async-trait = "0.1"
+pin-project-lite = "0.2"
+
+# HTTP client
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream"] }
+http = "0.2"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Security
+secrecy = { version = "0.8", features = ["serde"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+parking_lot = "0.12"
+
+# Utilities
+bytes = "1.5"
+thiserror = "1.0"
+url = "2.5"
+mime = "0.3"
+base64 = "0.21"
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+wiremock = "0.6"
+test-case = "3.3"
+criterion = "0.5"
+pretty_assertions = "1.4"
+
+[features]
+default = ["rustls"]
+rustls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
+admin = []
+batches = []
+beta = []
+full = ["admin", "batches", "beta"]
+
+[[bench]]
+name = "messages"
+harness = false
+
+[[bench]]
+name = "streaming"
+harness = false

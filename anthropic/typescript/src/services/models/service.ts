@@ -1,0 +1,65 @@
+import type { HttpTransport, RequestOptions } from '../../transport/http-transport.js';
+import type { AuthManager } from '../../auth/auth-manager.js';
+import type { ResilienceOrchestrator } from '../../resilience/orchestrator.js';
+import type { ModelInfo, ModelListResponse } from './types.js';
+
+export interface ModelsService {
+  list(options?: RequestOptions): Promise<ModelListResponse>;
+  retrieve(modelId: string, options?: RequestOptions): Promise<ModelInfo>;
+}
+
+export class ModelsServiceImpl implements ModelsService {
+  constructor(
+    private readonly transport: HttpTransport,
+    private readonly authManager: AuthManager,
+    private readonly resilience: ResilienceOrchestrator,
+  ) {}
+
+  async list(options?: RequestOptions): Promise<ModelListResponse> {
+    return this.resilience.execute(async () => {
+      const headers = this.authManager.getHeaders();
+      return this.transport.request<ModelListResponse>(
+        'GET',
+        '/v1/models',
+        undefined,
+        {
+          ...options,
+          headers: {
+            ...headers,
+            ...options?.headers,
+          },
+        }
+      );
+    });
+  }
+
+  async retrieve(modelId: string, options?: RequestOptions): Promise<ModelInfo> {
+    if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+      throw new Error('Model ID is required and must be a non-empty string');
+    }
+
+    return this.resilience.execute(async () => {
+      const headers = this.authManager.getHeaders();
+      return this.transport.request<ModelInfo>(
+        'GET',
+        `/v1/models/${modelId}`,
+        undefined,
+        {
+          ...options,
+          headers: {
+            ...headers,
+            ...options?.headers,
+          },
+        }
+      );
+    });
+  }
+}
+
+export function createModelsService(
+  transport: HttpTransport,
+  authManager: AuthManager,
+  resilience: ResilienceOrchestrator
+): ModelsService {
+  return new ModelsServiceImpl(transport, authManager, resilience);
+}
