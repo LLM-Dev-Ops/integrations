@@ -34,6 +34,12 @@ pub trait BatchesService: Send + Sync {
 
     /// Download results for a completed batch
     async fn results(&self, batch_id: &str) -> Result<BatchResultsResponse, AnthropicError>;
+
+    /// Stream results for a completed batch (memory-efficient for large batches)
+    async fn results_stream(
+        &self,
+        batch_id: &str,
+    ) -> Result<super::stream::BatchResultsStream, AnthropicError>;
 }
 
 /// Implementation of the Batches service
@@ -278,6 +284,37 @@ impl BatchesService for BatchesServiceImpl {
         } else {
             Err(self.parse_api_error(response.status, &response.body))
         }
+    }
+
+    async fn results_stream(
+        &self,
+        batch_id: &str,
+    ) -> Result<super::stream::BatchResultsStream, AnthropicError> {
+        // Validate input
+        if batch_id.is_empty() {
+            return Err(AnthropicError::Validation(
+                ValidationError::Required {
+                    field: "batch_id".to_string(),
+                }
+            ));
+        }
+
+        // Build URL
+        let url = self
+            .base_url
+            .join(&format!("/v1/messages/batches/{}/results", batch_id))
+            .map_err(|e| AnthropicError::Configuration(format!("Invalid URL: {}", e)))?;
+
+        // Build headers
+        let headers = self.build_headers();
+
+        // Get streaming response from transport
+        let stream = self
+            .transport
+            .execute_stream(Method::GET, url.to_string(), headers, None)
+            .await?;
+
+        Ok(super::stream::BatchResultsStream::new(stream))
     }
 }
 

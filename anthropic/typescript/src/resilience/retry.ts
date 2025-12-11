@@ -3,7 +3,7 @@
  */
 
 import { AnthropicError } from '../errors/index.js';
-import { RetryConfig, RetryHook } from './types.js';
+import { RetryConfig, RetryHook, RetryDecision } from './types.js';
 
 /**
  * Executes operations with retry logic and exponential backoff
@@ -46,10 +46,21 @@ export class RetryExecutor {
 
         const delay = this.calculateDelay(attempt);
 
-        // Notify hooks
-        this.hooks.forEach(hook => hook.onRetry(attempt, lastError!, delay));
+        // Notify hooks and collect decisions
+        let finalDelay = delay;
+        for (const hook of this.hooks) {
+          const decision = hook.onRetry(attempt, lastError!, delay);
+          if (decision) {
+            if (decision.type === 'abort') {
+              throw error;
+            } else if (decision.type === 'retry') {
+              finalDelay = decision.delayMs;
+            }
+            // 'default' continues with calculated delay
+          }
+        }
 
-        await this.sleep(delay);
+        await this.sleep(finalDelay);
       }
     }
 

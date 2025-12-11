@@ -5,9 +5,11 @@
 
 mod types;
 mod service;
+mod stream;
 
 #[cfg(test)]
 mod tests;
 
 pub use types::*;
 pub use service::*;
+pub use stream::*;

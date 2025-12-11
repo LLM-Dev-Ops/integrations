@@ -155,12 +155,30 @@ pub fn validate_create_message_request(
             });
         }
         if let Some(budget) = thinking.budget_tokens {
-            if budget == 0 {
+            // SPARC requirement: budget_tokens must be at least 1024
+            if budget < 1024 {
                 return Err(ValidationError::Invalid {
                     field: "thinking.budget_tokens".to_string(),
-                    reason: "must be greater than 0".to_string(),
+                    reason: "must be at least 1024".to_string(),
                 });
             }
+        }
+
+        // Validate model compatibility for extended thinking
+        // Extended thinking is only supported on specific models
+        let supported_models = [
+            "claude-sonnet-4-20250514",
+            "claude-3-7-sonnet-20250219",
+            "claude-3-5-sonnet-20241022",
+        ];
+        if !supported_models.iter().any(|m| request.model.starts_with(m)) {
+            return Err(ValidationError::Invalid {
+                field: "thinking".to_string(),
+                reason: format!(
+                    "extended thinking is only supported on models: {}",
+                    supported_models.join(", ")
+                ),
+            });
         }
     }
 
@@ -389,5 +407,91 @@ mod tests {
             validate_create_message_request(&request),
             Err(ValidationError::Invalid { field, .. }) if field == "tool_choice"
         ));
+    }
+
+    #[test]
+    fn test_validate_thinking_budget_below_minimum() {
+        let request = CreateMessageRequest::new(
+            "claude-3-5-sonnet-20241022",
+            1024,
+            vec![MessageParam {
+                role: Role::User,
+                content: MessageContent::Text("Hello".to_string()),
+            }],
+        )
+        .with_thinking(ThinkingConfig {
+            thinking_type: "enabled".to_string(),
+            budget_tokens: Some(500), // Below 1024 minimum
+        });
+
+        let result = validate_create_message_request(&request);
+        assert!(result.is_err());
+        if let Err(ValidationError::Invalid { field, reason }) = result {
+            assert_eq!(field, "thinking.budget_tokens");
+            assert!(reason.contains("1024"));
+        } else {
+            panic!("Expected Invalid error for thinking.budget_tokens");
+        }
+    }
+
+    #[test]
+    fn test_validate_thinking_budget_at_minimum() {
+        let request = CreateMessageRequest::new(
+            "claude-3-5-sonnet-20241022",
+            1024,
+            vec![MessageParam {
+                role: Role::User,
+                content: MessageContent::Text("Hello".to_string()),
+            }],
+        )
+        .with_thinking(ThinkingConfig {
+            thinking_type: "enabled".to_string(),
+            budget_tokens: Some(1024), // Exactly at minimum
+        });
+
+        assert!(validate_create_message_request(&request).is_ok());
+    }
+
+    #[test]
+    fn test_validate_thinking_unsupported_model() {
+        let request = CreateMessageRequest::new(
+            "claude-2.1", // Not supported for thinking
+            1024,
+            vec![MessageParam {
+                role: Role::User,
+                content: MessageContent::Text("Hello".to_string()),
+            }],
+        )
+        .with_thinking(ThinkingConfig {
+            thinking_type: "enabled".to_string(),
+            budget_tokens: Some(2048),
+        });
+
+        let result = validate_create_message_request(&request);
+        assert!(result.is_err());
+        if let Err(ValidationError::Invalid { field, reason }) = result {
+            assert_eq!(field, "thinking");
+            assert!(reason.contains("only supported"));
+        } else {
+            panic!("Expected Invalid error for thinking model compatibility");
+        }
+    }
+
+    #[test]
+    fn test_validate_thinking_supported_model() {
+        let request = CreateMessageRequest::new(
+            "claude-3-5-sonnet-20241022",
+            1024,
+            vec![MessageParam {
+                role: Role::User,
+                content: MessageContent::Text("Hello".to_string()),
+            }],
+        )
+        .with_thinking(ThinkingConfig {
+            thinking_type: "enabled".to_string(),
+            budget_tokens: Some(2048),
+        });
+
+        assert!(validate_create_message_request(&request).is_ok());
     }
 }

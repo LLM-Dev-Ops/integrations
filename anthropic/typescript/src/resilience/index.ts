@@ -12,6 +12,7 @@ export type {
   ResilienceConfig,
   CircuitState,
   RetryHook,
+  RetryDecision,
   CircuitBreakerHook,
   RateLimitHook,
 } from './types.js';
@@ -23,6 +24,7 @@ export {
 } from './retry.js';
 
 // Circuit breaker exports
+export type { CircuitBreakerStats } from './circuit-breaker.js';
 export {
   CircuitBreaker,
   CircuitOpenError,

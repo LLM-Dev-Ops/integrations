@@ -266,7 +266,7 @@ describe('MessagesServiceImpl', () => {
         messages: [{ role: 'user', content: 'Solve this problem' }],
         thinking: {
           type: 'enabled',
-          budget_tokens: 1000,
+          budget_tokens: 2048, // Must be >= 1024 per SPARC spec
         },
       };
 
@@ -282,6 +282,52 @@ describe('MessagesServiceImpl', () => {
         }),
         expect.anything()
       );
+    });
+
+    it('should throw ValidationError for thinking budget_tokens below 1024', async () => {
+      const request: CreateMessageRequest = {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: 'Solve this problem' }],
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 500, // Below minimum of 1024
+        },
+      };
+
+      await expect(service.create(request)).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for thinking with unsupported model', async () => {
+      const request: CreateMessageRequest = {
+        model: 'claude-2.1', // Not supported for thinking
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: 'Solve this problem' }],
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 2048,
+        },
+      };
+
+      await expect(service.create(request)).rejects.toThrow(ValidationError);
+    });
+
+    it('should accept thinking with supported model', async () => {
+      const request: CreateMessageRequest = {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: 'Solve this problem' }],
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 1024, // Exactly at minimum
+        },
+      };
+
+      mockTransport.request.mockResolvedValue({} as Message);
+
+      await service.create(request);
+
+      expect(mockTransport.request).toHaveBeenCalled();
     });
 
     it('should support metadata', async () => {

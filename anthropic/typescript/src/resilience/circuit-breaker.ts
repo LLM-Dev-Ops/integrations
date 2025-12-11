@@ -163,6 +163,51 @@ export class CircuitBreaker {
     this.successCount = 0;
     this.lastFailureTime = undefined;
   }
+
+  /**
+   * Get comprehensive statistics about the circuit breaker state
+   */
+  getStats(): CircuitBreakerStats {
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      successCount: this.successCount,
+      lastFailureTime: this.lastFailureTime,
+      config: { ...this.config },
+      timeUntilHalfOpen: this.getTimeUntilHalfOpen(),
+    };
+  }
+
+  /**
+   * Get time remaining until circuit transitions to half-open (if open)
+   * Returns undefined if circuit is not open
+   */
+  private getTimeUntilHalfOpen(): number | undefined {
+    if (this.state !== 'open' || !this.lastFailureTime) {
+      return undefined;
+    }
+    const elapsed = Date.now() - this.lastFailureTime;
+    const remaining = this.config.openDurationMs - elapsed;
+    return remaining > 0 ? remaining : 0;
+  }
+}
+
+/**
+ * Statistics about circuit breaker state
+ */
+export interface CircuitBreakerStats {
+  /** Current circuit state */
+  state: CircuitState;
+  /** Number of consecutive failures */
+  failureCount: number;
+  /** Number of consecutive successes (in half-open state) */
+  successCount: number;
+  /** Timestamp of last failure */
+  lastFailureTime: number | undefined;
+  /** Current configuration */
+  config: CircuitBreakerConfig;
+  /** Time in ms until circuit transitions to half-open (if open) */
+  timeUntilHalfOpen: number | undefined;
 }
 
 /**
