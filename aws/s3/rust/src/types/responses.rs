@@ -337,6 +337,83 @@ pub struct PutObjectTaggingOutput {
     pub request_id: Option<String>,
 }
 
+// =============================================
+// Bucket Tagging Response Types
+// =============================================
+
+/// Response from get bucket tagging operation.
+#[derive(Debug, Clone)]
+pub struct GetBucketTaggingOutput {
+    /// Tags.
+    pub tags: Vec<Tag>,
+    /// AWS request ID.
+    pub request_id: Option<String>,
+}
+
+/// Response from put bucket tagging operation.
+#[derive(Debug, Clone)]
+pub struct PutBucketTaggingOutput {
+    /// AWS request ID.
+    pub request_id: Option<String>,
+}
+
+/// Response from delete bucket tagging operation.
+#[derive(Debug, Clone)]
+pub struct DeleteBucketTaggingOutput {
+    /// AWS request ID.
+    pub request_id: Option<String>,
+}
+
+// =============================================
+// List Multipart Uploads Response Type
+// =============================================
+
+/// Response from list multipart uploads operation.
+#[derive(Debug, Clone)]
+pub struct ListMultipartUploadsOutput {
+    /// Bucket name.
+    pub bucket: Option<String>,
+    /// Prefix filter.
+    pub prefix: Option<String>,
+    /// Delimiter.
+    pub delimiter: Option<String>,
+    /// Key marker.
+    pub key_marker: Option<String>,
+    /// Upload ID marker.
+    pub upload_id_marker: Option<String>,
+    /// Next key marker for pagination.
+    pub next_key_marker: Option<String>,
+    /// Next upload ID marker for pagination.
+    pub next_upload_id_marker: Option<String>,
+    /// Maximum uploads.
+    pub max_uploads: Option<u32>,
+    /// Is truncated (more results available).
+    pub is_truncated: bool,
+    /// Multipart uploads list.
+    pub uploads: Vec<MultipartUpload>,
+    /// Common prefixes (for hierarchy).
+    pub common_prefixes: Vec<String>,
+    /// AWS request ID.
+    pub request_id: Option<String>,
+}
+
+/// Information about an in-progress multipart upload.
+#[derive(Debug, Clone)]
+pub struct MultipartUpload {
+    /// Object key.
+    pub key: String,
+    /// Upload ID.
+    pub upload_id: String,
+    /// Upload initiator.
+    pub initiator: Option<Owner>,
+    /// Object owner.
+    pub owner: Option<Owner>,
+    /// Storage class.
+    pub storage_class: Option<StorageClass>,
+    /// Upload initiated date.
+    pub initiated: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

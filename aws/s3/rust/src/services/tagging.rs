@@ -130,6 +130,98 @@ impl TaggingService {
         Ok(())
     }
 
+    // =============================================
+    // Bucket Tagging Operations
+    // =============================================
+
+    /// Get bucket tagging.
+    pub async fn get_bucket_tagging(
+        &self,
+        request: GetBucketTaggingRequest,
+    ) -> Result<GetBucketTaggingOutput, S3Error> {
+        let url = self.build_url(&request.bucket, None, Some("tagging"))?;
+        let headers = HashMap::new();
+
+        let signed = self.signer.sign("GET", &url, &headers, None).await?;
+
+        let http_request = HttpRequest::new("GET", signed.url.as_str())
+            .with_headers(signed.headers);
+
+        let response = self.transport.send(http_request).await?;
+
+        if !response.is_success() {
+            return Err(self.parse_error(&response.body).await);
+        }
+
+        let body_str = String::from_utf8_lossy(&response.body);
+        let output = xml::parse_get_bucket_tagging(&body_str)?;
+
+        Ok(GetBucketTaggingOutput {
+            tags: output.tags,
+            request_id: response.request_id().map(String::from),
+        })
+    }
+
+    /// Put bucket tagging.
+    pub async fn put_bucket_tagging(
+        &self,
+        request: PutBucketTaggingRequest,
+    ) -> Result<PutBucketTaggingOutput, S3Error> {
+        let url = self.build_url(&request.bucket, None, Some("tagging"))?;
+
+        let body = xml::build_put_tagging_xml(&request.tags);
+        let body_bytes = Bytes::from(body);
+        let content_md5 = base64::encode(md5::compute(&body_bytes).0);
+
+        let mut headers = HashMap::new();
+        headers.insert("content-type".to_string(), "application/xml".to_string());
+        headers.insert("content-md5".to_string(), content_md5);
+        headers.insert("content-length".to_string(), body_bytes.len().to_string());
+
+        let signed = self
+            .signer
+            .sign("PUT", &url, &headers, Some(&body_bytes))
+            .await?;
+
+        let http_request = HttpRequest::new("PUT", signed.url.as_str())
+            .with_headers(signed.headers)
+            .with_body(body_bytes);
+
+        let response = self.transport.send(http_request).await?;
+
+        if !response.is_success() {
+            return Err(self.parse_error(&response.body).await);
+        }
+
+        Ok(PutBucketTaggingOutput {
+            request_id: response.request_id().map(String::from),
+        })
+    }
+
+    /// Delete bucket tagging.
+    pub async fn delete_bucket_tagging(
+        &self,
+        request: DeleteBucketTaggingRequest,
+    ) -> Result<DeleteBucketTaggingOutput, S3Error> {
+        let url = self.build_url(&request.bucket, None, Some("tagging"))?;
+        let headers = HashMap::new();
+
+        let signed = self.signer.sign("DELETE", &url, &headers, None).await?;
+
+        let http_request = HttpRequest::new("DELETE", signed.url.as_str())
+            .with_headers(signed.headers);
+
+        let response = self.transport.send(http_request).await?;
+
+        if !response.is_success() {
+            return Err(self.parse_error(&response.body).await);
+        }
+
+        Ok(DeleteBucketTaggingOutput {
+            request_id: response.request_id().map(String::from),
+        })
+    }
+
     fn build_url(
         &self,
         bucket: &str,

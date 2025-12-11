@@ -8,6 +8,8 @@ mod organizations;
 mod actions;
 mod gists;
 mod search;
+mod git_data;
+mod graphql;
 
 pub use repositories::*;
 pub use issues::*;
@@ -17,3 +19,5 @@ pub use organizations::*;
 pub use actions::*;
 pub use gists::*;
 pub use search::*;
+pub use git_data::*;
+pub use graphql::*;

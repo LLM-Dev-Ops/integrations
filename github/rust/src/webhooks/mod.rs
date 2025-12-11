@@ -31,21 +31,21 @@ impl WebhookVerifier {
             .strip_prefix("sha256=")
             .ok_or_else(|| {
                 GitHubError::new(
-                    GitHubErrorKind::WebhookSignatureInvalid,
+                    GitHubErrorKind::InvalidSignature,
                     "Invalid signature format: must start with 'sha256='",
                 )
             })?;
 
         let signature_bytes = hex::decode(signature).map_err(|e| {
             GitHubError::new(
-                GitHubErrorKind::WebhookSignatureInvalid,
+                GitHubErrorKind::InvalidSignature,
                 format!("Invalid signature hex encoding: {}", e),
             )
         })?;
 
         let mut mac = HmacSha256::new_from_slice(self.secret.as_bytes()).map_err(|e| {
             GitHubError::new(
-                GitHubErrorKind::WebhookSignatureInvalid,
+                GitHubErrorKind::InvalidSignature,
                 format!("Failed to create HMAC: {}", e),
             )
         })?;
@@ -57,7 +57,7 @@ impl WebhookVerifier {
             .map(|_| true)
             .map_err(|_| {
                 GitHubError::new(
-                    GitHubErrorKind::WebhookSignatureInvalid,
+                    GitHubErrorKind::InvalidSignature,
                     "Signature verification failed",
                 )
             })
@@ -72,7 +72,7 @@ impl WebhookVerifier {
         self.verify(signature, payload)?;
         serde_json::from_slice(payload).map_err(|e| {
             GitHubError::new(
-                GitHubErrorKind::WebhookPayloadInvalid,
+                GitHubErrorKind::PayloadParseError,
                 format!("Failed to parse webhook payload: {}", e),
             )
         })
@@ -745,7 +745,7 @@ impl<H: WebhookHandler> WebhookProcessor<H> {
             WebhookEventType::Push => {
                 let event: PushEvent = serde_json::from_slice(payload).map_err(|e| {
                     GitHubError::new(
-                        GitHubErrorKind::WebhookPayloadInvalid,
+                        GitHubErrorKind::PayloadParseError,
                         format!("Failed to parse push event: {}", e),
                     )
                 })?;
@@ -754,7 +754,7 @@ impl<H: WebhookHandler> WebhookProcessor<H> {
             WebhookEventType::PullRequest => {
                 let event: PullRequestEvent = serde_json::from_slice(payload).map_err(|e| {
                     GitHubError::new(
-                        GitHubErrorKind::WebhookPayloadInvalid,
+                        GitHubErrorKind::PayloadParseError,
                         format!("Failed to parse pull request event: {}", e),
                     )
                 })?;
@@ -763,7 +763,7 @@ impl<H: WebhookHandler> WebhookProcessor<H> {
             WebhookEventType::Issues => {
                 let event: IssueEvent = serde_json::from_slice(payload).map_err(|e| {
                     GitHubError::new(
-                        GitHubErrorKind::WebhookPayloadInvalid,
+                        GitHubErrorKind::PayloadParseError,
                         format!("Failed to parse issue event: {}", e),
                     )
                 })?;
@@ -772,7 +772,7 @@ impl<H: WebhookHandler> WebhookProcessor<H> {
             WebhookEventType::WorkflowRun => {
                 let event: WorkflowRunEvent = serde_json::from_slice(payload).map_err(|e| {
                     GitHubError::new(
-                        GitHubErrorKind::WebhookPayloadInvalid,
+                        GitHubErrorKind::PayloadParseError,
                         format!("Failed to parse workflow run event: {}", e),
                     )
                 })?;

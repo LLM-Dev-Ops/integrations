@@ -247,6 +247,50 @@ impl MultipartService {
         Ok(output)
     }
 
+    /// List in-progress multipart uploads for a bucket.
+    pub async fn list_uploads(
+        &self,
+        request: ListMultipartUploadsRequest,
+    ) -> Result<ListMultipartUploadsOutput, S3Error> {
+        let mut query_params = vec!["uploads".to_string()];
+
+        if let Some(prefix) = &request.prefix {
+            query_params.push(format!("prefix={}", prefix));
+        }
+        if let Some(delimiter) = &request.delimiter {
+            query_params.push(format!("delimiter={}", delimiter));
+        }
+        if let Some(key_marker) = &request.key_marker {
+            query_params.push(format!("key-marker={}", key_marker));
+        }
+        if let Some(upload_id_marker) = &request.upload_id_marker {
+            query_params.push(format!("upload-id-marker={}", upload_id_marker));
+        }
+        if let Some(max_uploads) = request.max_uploads {
+            query_params.push(format!("max-uploads={}", max_uploads));
+        }
+
+        let url = self.build_url(&request.bucket, None, Some(&query_params.join("&")))?;
+        let headers = HashMap::new();
+
+        let signed = self.signer.sign("GET", &url, &headers, None).await?;
+
+        let http_request = HttpRequest::new("GET", signed.url.as_str())
+            .with_headers(signed.headers);
+
+        let response = self.transport.send(http_request).await?;
+
+        if !response.is_success() {
+            return Err(self.parse_error(&response.body).await);
+        }
+
+        let body_str = String::from_utf8_lossy(&response.body);
+        let mut output = xml::parse_list_multipart_uploads(&body_str)?;
+        output.request_id = response.request_id().map(String::from);
+
+        Ok(output)
+    }
+
     /// High-level multipart upload helper.
     ///
     /// Automatically splits the data into parts and uploads them.

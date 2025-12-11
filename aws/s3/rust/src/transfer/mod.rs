@@ -142,6 +142,122 @@ pub fn calculate_sha256(data: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Transfer manager for high-level file operations.
+///
+/// Provides convenient methods for uploading and downloading files
+/// with automatic multipart handling and progress tracking.
+pub struct TransferManager {
+    config: TransferConfig,
+}
+
+impl TransferManager {
+    /// Create a new transfer manager with default configuration.
+    pub fn new() -> Self {
+        Self {
+            config: TransferConfig::default(),
+        }
+    }
+
+    /// Create a new transfer manager with custom configuration.
+    pub fn with_config(config: TransferConfig) -> Self {
+        Self { config }
+    }
+
+    /// Get the transfer configuration.
+    pub fn config(&self) -> &TransferConfig {
+        &self.config
+    }
+
+    /// Determine if multipart upload should be used for the given size.
+    pub fn should_use_multipart(&self, size: u64) -> bool {
+        size as usize > self.config.multipart_threshold
+    }
+
+    /// Calculate the number of parts needed for a given size.
+    pub fn calculate_parts(&self, size: u64) -> u32 {
+        let part_size = self.config.part_size as u64;
+        ((size + part_size - 1) / part_size) as u32
+    }
+
+    /// Read a file into bytes.
+    pub fn read_file(path: &std::path::Path) -> std::io::Result<Bytes> {
+        let data = std::fs::read(path)?;
+        Ok(Bytes::from(data))
+    }
+
+    /// Write bytes to a file.
+    pub fn write_file(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+        std::fs::write(path, data)
+    }
+
+    /// Get file size.
+    pub fn file_size(path: &std::path::Path) -> std::io::Result<u64> {
+        let metadata = std::fs::metadata(path)?;
+        Ok(metadata.len())
+    }
+
+    /// Detect content type from file extension.
+    pub fn detect_content_type(path: &std::path::Path) -> Option<&'static str> {
+        let extension = path.extension()?.to_str()?.to_lowercase();
+        match extension.as_str() {
+            // Images
+            "jpg" | "jpeg" => Some("image/jpeg"),
+            "png" => Some("image/png"),
+            "gif" => Some("image/gif"),
+            "webp" => Some("image/webp"),
+            "svg" => Some("image/svg+xml"),
+            "ico" => Some("image/x-icon"),
+            // Documents
+            "pdf" => Some("application/pdf"),
+            "doc" => Some("application/msword"),
+            "docx" => Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "xls" => Some("application/vnd.ms-excel"),
+            "xlsx" => Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            // Text
+            "txt" => Some("text/plain"),
+            "html" | "htm" => Some("text/html"),
+            "css" => Some("text/css"),
+            "js" => Some("application/javascript"),
+            "json" => Some("application/json"),
+            "xml" => Some("application/xml"),
+            "csv" => Some("text/csv"),
+            "md" => Some("text/markdown"),
+            // Archives
+            "zip" => Some("application/zip"),
+            "gz" | "gzip" => Some("application/gzip"),
+            "tar" => Some("application/x-tar"),
+            "rar" => Some("application/vnd.rar"),
+            "7z" => Some("application/x-7z-compressed"),
+            // Audio
+            "mp3" => Some("audio/mpeg"),
+            "wav" => Some("audio/wav"),
+            "ogg" => Some("audio/ogg"),
+            // Video
+            "mp4" => Some("video/mp4"),
+            "webm" => Some("video/webm"),
+            "avi" => Some("video/x-msvideo"),
+            // Binary
+            "bin" => Some("application/octet-stream"),
+            "exe" => Some("application/octet-stream"),
+            _ => Some("application/octet-stream"),
+        }
+    }
+}
+
+impl Default for TransferManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for TransferManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TransferManager")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

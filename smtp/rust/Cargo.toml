@@ -47,6 +47,7 @@ mime_guess = "2.0"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
+humantime = "2.1"
 
 # Crypto for CRAM-MD5
 hmac = "0.12"

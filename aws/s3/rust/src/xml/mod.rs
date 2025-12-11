@@ -697,6 +697,168 @@ pub fn build_create_bucket_xml(region: &str) -> String {
     )
 }
 
+/// Parse GetBucketTagging response.
+pub fn parse_get_bucket_tagging(xml: &str) -> Result<GetBucketTaggingOutput, S3Error> {
+    // Bucket tagging uses the same format as object tagging
+    let object_tagging = parse_get_object_tagging(xml)?;
+    Ok(GetBucketTaggingOutput {
+        tags: object_tagging.tags,
+        request_id: object_tagging.request_id,
+    })
+}
+
+/// Parse ListMultipartUploads response.
+pub fn parse_list_multipart_uploads(xml: &str) -> Result<ListMultipartUploadsOutput, S3Error> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut output = ListMultipartUploadsOutput {
+        bucket: None,
+        prefix: None,
+        delimiter: None,
+        key_marker: None,
+        upload_id_marker: None,
+        next_key_marker: None,
+        next_upload_id_marker: None,
+        max_uploads: None,
+        is_truncated: false,
+        uploads: Vec::new(),
+        common_prefixes: Vec::new(),
+        request_id: None,
+    };
+
+    let mut current_upload: Option<MultipartUpload> = None;
+    let mut current_owner: Option<Owner> = None;
+    let mut current_initiator: Option<Owner> = None;
+    let mut in_upload = false;
+    let mut in_owner = false;
+    let mut in_initiator = false;
+    let mut in_common_prefixes = false;
+    let mut current_element = String::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                current_element = name.clone();
+
+                match name.as_str() {
+                    "Upload" => {
+                        in_upload = true;
+                        current_upload = Some(MultipartUpload {
+                            key: String::new(),
+                            upload_id: String::new(),
+                            initiator: None,
+                            owner: None,
+                            storage_class: None,
+                            initiated: None,
+                        });
+                    }
+                    "Owner" if in_upload => {
+                        in_owner = true;
+                        current_owner = Some(Owner {
+                            id: None,
+                            display_name: None,
+                        });
+                    }
+                    "Initiator" if in_upload => {
+                        in_initiator = true;
+                        current_initiator = Some(Owner {
+                            id: None,
+                            display_name: None,
+                        });
+                    }
+                    "CommonPrefixes" => {
+                        in_common_prefixes = true;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                let text = e.unescape().unwrap_or_default().to_string();
+
+                if in_upload {
+                    if in_owner {
+                        if let Some(owner) = current_owner.as_mut() {
+                            match current_element.as_str() {
+                                "ID" => owner.id = Some(text),
+                                "DisplayName" => owner.display_name = Some(text),
+                                _ => {}
+                            }
+                        }
+                    } else if in_initiator {
+                        if let Some(initiator) = current_initiator.as_mut() {
+                            match current_element.as_str() {
+                                "ID" => initiator.id = Some(text),
+                                "DisplayName" => initiator.display_name = Some(text),
+                                _ => {}
+                            }
+                        }
+                    } else if let Some(upload) = current_upload.as_mut() {
+                        match current_element.as_str() {
+                            "Key" => upload.key = text,
+                            "UploadId" => upload.upload_id = text,
+                            "Initiated" => upload.initiated = Some(text),
+                            "StorageClass" => upload.storage_class = text.parse().ok(),
+                            _ => {}
+                        }
+                    }
+                } else if in_common_prefixes {
+                    if current_element == "Prefix" {
+                        output.common_prefixes.push(text);
+                    }
+                } else {
+                    match current_element.as_str() {
+                        "Bucket" => output.bucket = Some(text),
+                        "Prefix" => output.prefix = Some(text),
+                        "Delimiter" => output.delimiter = Some(text),
+                        "KeyMarker" => output.key_marker = Some(text),
+                        "UploadIdMarker" => output.upload_id_marker = Some(text),
+                        "NextKeyMarker" => output.next_key_marker = Some(text),
+                        "NextUploadIdMarker" => output.next_upload_id_marker = Some(text),
+                        "MaxUploads" => output.max_uploads = text.parse().ok(),
+                        "IsTruncated" => output.is_truncated = text == "true",
+                        _ => {}
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                match name.as_str() {
+                    "Upload" => {
+                        if let Some(mut upload) = current_upload.take() {
+                            upload.owner = current_owner.take();
+                            upload.initiator = current_initiator.take();
+                            output.uploads.push(upload);
+                        }
+                        in_upload = false;
+                    }
+                    "Owner" if in_upload => {
+                        in_owner = false;
+                    }
+                    "Initiator" if in_upload => {
+                        in_initiator = false;
+                    }
+                    "CommonPrefixes" => {
+                        in_common_prefixes = false;
+                    }
+                    _ => {}
+                }
+                current_element.clear();
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(S3Error::Response(ResponseError::XmlParseError {
+                    message: e.to_string(),
+                }));
+            }
+            _ => {}
+        }
+    }
+
+    Ok(output)
+}
+
 /// Escape special characters for XML.
 fn escape_xml(s: &str) -> String {
     s.replace('&', "&amp;")

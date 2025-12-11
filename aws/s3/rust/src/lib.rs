@@ -54,7 +54,8 @@ pub use client::{S3Client, S3ClientBuilder, S3ClientImpl};
 pub use config::S3Config;
 pub use credentials::{
     AwsCredentials, ChainCredentialsProvider, CredentialsProvider, EnvCredentialsProvider,
-    ProfileCredentialsProvider, StaticCredentialsProvider,
+    ImdsConfig, ImdsCredentialsProvider, ImdsVersion, ProfileCredentialsProvider,
+    StaticCredentialsProvider,
 };
 pub use error::{
     AccessError, BucketError, ConfigurationError, CredentialsError, MultipartError, NetworkError,
@@ -65,23 +66,31 @@ pub use services::{
 };
 pub use signing::{AwsSigner, AwsSignerV4};
 pub use transport::{HttpRequest, HttpResponse, HttpTransport};
+pub use transfer::{
+    calculate_md5, calculate_sha256, ChunkedReader, ProgressCallback, TransferConfig,
+    TransferManager, TransferProgress,
+};
 pub use types::{
     // Request types
     CopyObjectRequest,
     CreateBucketRequest,
     CreateMultipartUploadRequest,
     DeleteBucketRequest,
+    DeleteBucketTaggingRequest,
     DeleteObjectRequest,
     DeleteObjectsRequest,
+    GetBucketTaggingRequest,
     GetObjectRequest,
     GetObjectTaggingRequest,
     HeadBucketRequest,
     HeadObjectRequest,
+    ListMultipartUploadsRequest,
     ListObjectsV2Request,
     ListPartsRequest,
     PresignDeleteRequest,
     PresignGetRequest,
     PresignPutRequest,
+    PutBucketTaggingRequest,
     PutObjectRequest,
     PutObjectTaggingRequest,
     UploadPartRequest,
@@ -90,16 +99,21 @@ pub use types::{
     CopyObjectOutput,
     CreateBucketOutput,
     CreateMultipartUploadOutput,
+    DeleteBucketTaggingOutput,
     DeleteObjectOutput,
     DeleteObjectsOutput,
+    GetBucketTaggingOutput,
     GetObjectOutput,
     GetObjectTaggingOutput,
     HeadBucketOutput,
     HeadObjectOutput,
     ListBucketsOutput,
+    ListMultipartUploadsOutput,
     ListObjectsV2Output,
     ListPartsOutput,
+    MultipartUpload,
     PresignedUrl,
+    PutBucketTaggingOutput,
     PutObjectOutput,
     PutObjectTaggingOutput,
     UploadPartOutput,
@@ -107,6 +121,7 @@ pub use types::{
     Bucket,
     CannedAcl,
     ChecksumAlgorithm,
+    CompletedPart,
     Object,
     ObjectIdentifier,
     Owner,

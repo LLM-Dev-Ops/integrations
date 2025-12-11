@@ -146,6 +146,16 @@ impl GitHubClient {
         SearchService::new(self)
     }
 
+    /// Gets the Git Data service.
+    pub fn git_data(&self) -> GitDataService {
+        GitDataService::new(self)
+    }
+
+    /// Gets the GraphQL service.
+    pub fn graphql(&self) -> GraphQLService {
+        GraphQLService::new(self)
+    }
+
     // HTTP methods
 
     /// Makes a GET request.

@@ -48,7 +48,8 @@
     "@octokit/auth-oauth-app": "^7.0.0",
     "@octokit/auth-token": "^4.0.0",
     "jose": "^5.2.0",
-    "undici": "^6.6.0"
+    "undici": "^6.6.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

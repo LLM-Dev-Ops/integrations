@@ -1,0 +1,79 @@
+[package]
+name = "integrations-aws-ses"
+version = "0.1.0"
+edition = "2021"
+description = "Production-ready AWS SES v2 client with credential chain, retry policies, and comprehensive email services"
+license = "MIT"
+repository = "https://github.com/integrations/aws-ses"
+keywords = ["aws", "ses", "email", "smtp", "async"]
+categories = ["email", "network-programming", "asynchronous", "api-bindings"]
+
+[features]
+default = ["rustls-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
+tracing = ["dep:tracing"]
+metrics = ["dep:opentelemetry"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["net", "io-util", "time", "sync", "rt-multi-thread", "macros"] }
+
+# HTTP client
+reqwest = { version = "0.11", default-features = false, features = ["json", "gzip", "stream"] }
+http = "0.2"
+url = "2.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+
+# Security
+secrecy = { version = "0.8", features = ["serde"] }
+zeroize = { version = "1.7", features = ["derive"] }
+
+# Crypto for AWS Signature V4
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async utilities
+async-trait = "0.1"
+futures = "0.3"
+pin-project-lite = "0.2"
+
+# Random for request IDs
+uuid = { version = "1.6", features = ["v4"] }
+rand = "0.8"
+
+# Observability
+tracing = { version = "0.1", optional = true }
+opentelemetry = { version = "0.21", optional = true }
+
+# Percent encoding for URL signing
+percent-encoding = "2.3"
+
+# Base64 for encoding
+base64 = "0.21"
+
+# MIME types
+mime = "0.3"
+mime_guess = "2.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+rstest = "0.18"
+tempfile = "3.9"
+wiremock = "0.5"
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "ses_benchmark"
+harness = false

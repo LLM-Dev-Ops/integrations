@@ -6,10 +6,12 @@
 
 mod chain;
 mod env;
+mod imds;
 mod profile;
 
 pub use chain::ChainCredentialsProvider;
 pub use env::EnvCredentialsProvider;
+pub use imds::{ImdsConfig, ImdsCredentialsProvider, ImdsVersion};
 pub use profile::ProfileCredentialsProvider;
 
 use crate::error::{CredentialsError, S3Error};

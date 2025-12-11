@@ -802,6 +802,117 @@ impl PutObjectTaggingRequest {
     }
 }
 
+// =============================================
+// Bucket Tagging Request Types
+// =============================================
+
+/// Request to get bucket tagging.
+#[derive(Debug, Clone)]
+pub struct GetBucketTaggingRequest {
+    /// Bucket name.
+    pub bucket: String,
+    /// Expected bucket owner.
+    pub expected_bucket_owner: Option<String>,
+}
+
+impl GetBucketTaggingRequest {
+    /// Create a new get bucket tagging request.
+    pub fn new(bucket: impl Into<String>) -> Self {
+        Self {
+            bucket: bucket.into(),
+            expected_bucket_owner: None,
+        }
+    }
+}
+
+/// Request to put bucket tagging.
+#[derive(Debug, Clone)]
+pub struct PutBucketTaggingRequest {
+    /// Bucket name.
+    pub bucket: String,
+    /// Tags to set.
+    pub tags: Vec<Tag>,
+    /// Expected bucket owner.
+    pub expected_bucket_owner: Option<String>,
+}
+
+impl PutBucketTaggingRequest {
+    /// Create a new put bucket tagging request.
+    pub fn new(bucket: impl Into<String>, tags: Vec<Tag>) -> Self {
+        Self {
+            bucket: bucket.into(),
+            tags,
+            expected_bucket_owner: None,
+        }
+    }
+}
+
+/// Request to delete bucket tagging.
+#[derive(Debug, Clone)]
+pub struct DeleteBucketTaggingRequest {
+    /// Bucket name.
+    pub bucket: String,
+    /// Expected bucket owner.
+    pub expected_bucket_owner: Option<String>,
+}
+
+impl DeleteBucketTaggingRequest {
+    /// Create a new delete bucket tagging request.
+    pub fn new(bucket: impl Into<String>) -> Self {
+        Self {
+            bucket: bucket.into(),
+            expected_bucket_owner: None,
+        }
+    }
+}
+
+/// Request to list multipart uploads.
+#[derive(Debug, Clone, Default)]
+pub struct ListMultipartUploadsRequest {
+    /// Bucket name.
+    pub bucket: String,
+    /// Prefix filter.
+    pub prefix: Option<String>,
+    /// Delimiter for hierarchy.
+    pub delimiter: Option<String>,
+    /// Key marker for pagination.
+    pub key_marker: Option<String>,
+    /// Upload ID marker for pagination.
+    pub upload_id_marker: Option<String>,
+    /// Maximum uploads to return.
+    pub max_uploads: Option<u32>,
+    /// Expected bucket owner.
+    pub expected_bucket_owner: Option<String>,
+}
+
+impl ListMultipartUploadsRequest {
+    /// Create a new list multipart uploads request.
+    pub fn new(bucket: impl Into<String>) -> Self {
+        Self {
+            bucket: bucket.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Set prefix filter.
+    pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set delimiter.
+    pub fn with_delimiter(mut self, delimiter: impl Into<String>) -> Self {
+        self.delimiter = Some(delimiter.into());
+        self
+    }
+
+    /// Set max uploads.
+    pub fn with_max_uploads(mut self, max_uploads: u32) -> Self {
+        self.max_uploads = Some(max_uploads);
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
