@@ -36,8 +36,8 @@
 mod mapping;
 mod result;
 
-pub use mapping::{map_aws_error, AwsErrorResponse};
-pub use result::SesResult;
+pub use mapping::{map_aws_error, parse_error_response, AwsErrorResponse};
+pub use result::{retry_with_backoff, retry_with_jitter, SesResult, SesResultExt};
 
 use std::time::Duration;
 use thiserror::Error;

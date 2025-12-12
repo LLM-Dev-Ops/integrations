@@ -372,6 +372,7 @@ pub trait ViewsServiceTrait: Send + Sync {
 }
 
 /// Views service implementation
+#[derive(Clone)]
 pub struct ViewsService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

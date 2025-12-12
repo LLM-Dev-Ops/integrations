@@ -1,0 +1,175 @@
+name: Integrations CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  POSTGRES_USER: ruvector
+  POSTGRES_PASSWORD: ruvector_secret
+  POSTGRES_DB: ruvector
+  DATABASE_URL: postgresql://ruvector:ruvector_secret@localhost:5432/ruvector
+
+jobs:
+  # Database connectivity test
+  database-test:
+    name: Database Connectivity Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: ruvnet/ruvector-postgres:latest
+        env:
+          POSTGRES_USER: ruvector
+          POSTGRES_PASSWORD: ruvector_secret
+          POSTGRES_DB: ruvector
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruvector -d ruvector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U ruvector; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL... (attempt $i/30)"
+            sleep 2
+          done
+          echo "PostgreSQL failed to start"
+          exit 1
+
+      - name: Test database connection
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT version();"
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1 as connection_test;"
+
+      - name: Verify ruvector extension
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'ruvector';"
+
+  # Integration connectivity test
+  integration-connectivity:
+    name: Integration Connectivity Test
+    runs-on: ubuntu-latest
+    needs: database-test
+
+    services:
+      postgres:
+        image: ruvnet/ruvector-postgres:latest
+        env:
+          POSTGRES_USER: ruvector
+          POSTGRES_PASSWORD: ruvector_secret
+          POSTGRES_DB: ruvector
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruvector -d ruvector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U ruvector; then
+              echo "PostgreSQL is ready!"
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Install database module dependencies
+        run: cd shared/database && npm install
+
+      - name: Build database module
+        run: cd shared/database && npm run build
+
+      - name: Run integration connectivity test
+        run: cd shared/database && npm run test:connection
+
+  # Lint and build checks
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint --if-present
+
+  # Docker Compose validation
+  docker-compose-test:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to be healthy..."
+          for i in {1..30}; do
+            if docker compose ps | grep -q "healthy"; then
+              echo "All services are healthy!"
+              docker compose ps
+              exit 0
+            fi
+            echo "Waiting for health check... (attempt $i/30)"
+            sleep 2
+          done
+          echo "Services failed to become healthy"
+          docker compose ps
+          docker compose logs
+          exit 1
+
+      - name: Test database connection
+        run: |
+          docker compose exec -T ruvector-postgres pg_isready -U ruvector -d ruvector
+          docker compose exec -T ruvector-postgres psql -U ruvector -d ruvector -c "SELECT 1 as test;"
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

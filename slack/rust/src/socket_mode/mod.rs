@@ -1,15 +1,30 @@
 //! Socket Mode client for real-time events.
 //!
 //! Provides WebSocket-based communication with Slack for receiving events.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use slack::socket_mode::{SocketModeClient, SocketModeConfig, FnHandler};
+//!
+//! let config = SocketModeConfig::new("xapp-your-token");
+//! let handler = FnHandler::new()
+//!     .on_events(|event| {
+//!         println!("Event: {:?}", event);
+//!         None
+//!     })
+//!     .on_connect(|| {
+//!         println!("Connected!");
+//!     });
+//!
+//! let mut client = SocketModeClient::new(config, Arc::new(handler));
+//! client.connect().await?;
+//! ```
 
-#[cfg(feature = "socket-mode")]
 mod client;
-#[cfg(feature = "socket-mode")]
 mod handler;
 mod types;
 
-#[cfg(feature = "socket-mode")]
 pub use client::*;
-#[cfg(feature = "socket-mode")]
 pub use handler::*;
 pub use types::*;

@@ -119,6 +119,7 @@ pub trait PinsServiceTrait: Send + Sync {
 }
 
 /// Pins service implementation
+#[derive(Clone)]
 pub struct PinsService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

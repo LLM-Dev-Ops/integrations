@@ -10,7 +10,7 @@ keywords = ["slack", "api", "messaging", "bot", "websocket"]
 categories = ["api-bindings", "web-programming"]
 
 [features]
-default = ["rustls"]
+default = ["rustls", "socket-mode"]
 rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
 socket-mode = ["tokio-tungstenite", "futures-util"]

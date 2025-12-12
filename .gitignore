@@ -1,2 +1,14 @@
 
 node_modules
+
+# Build outputs
+dist/
+target/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Docker volumes
+ruvector_data/

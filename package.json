@@ -1,4 +1,13 @@
 {
+  "name": "integrations",
+  "private": true,
+  "workspaces": [
+    "shared/database"
+  ],
+  "scripts": {
+    "test:db": "cd shared/database && npm run test:connection",
+    "db:build": "cd shared/database && npm run build"
+  },
   "dependencies": {
     "better-sqlite3": "^12.5.0",
     "claude-flow": "^2.7.47"

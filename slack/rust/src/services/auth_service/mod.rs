@@ -176,6 +176,7 @@ pub trait AuthServiceTrait: Send + Sync {
 }
 
 /// Auth service implementation
+#[derive(Clone)]
 pub struct AuthService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

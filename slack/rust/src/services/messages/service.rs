@@ -38,6 +38,7 @@ pub trait MessagesServiceTrait: Send + Sync {
 }
 
 /// Messages service implementation
+#[derive(Clone)]
 pub struct MessagesService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

@@ -266,6 +266,41 @@ export class SocketModeError extends SlackError {
 }
 
 /**
+ * Channel-related errors
+ */
+export class ChannelError extends SlackError {
+  readonly code = 'SLACK_CHANNEL';
+  readonly retryable = false;
+
+  constructor(
+    message: string,
+    public readonly errorType: 'archived' | 'not_archived' | 'mpim' | 'unsupported' | 'already_member'
+  ) {
+    super(`Channel error: ${message}`);
+  }
+
+  static channelArchived(): ChannelError {
+    return new ChannelError('Channel is archived', 'archived');
+  }
+
+  static channelNotArchived(): ChannelError {
+    return new ChannelError('Channel is not archived', 'not_archived');
+  }
+
+  static channelIsMpim(): ChannelError {
+    return new ChannelError('Channel is an MPDM', 'mpim');
+  }
+
+  static methodNotSupportedForChannelType(): ChannelError {
+    return new ChannelError('Method not supported for this channel type', 'unsupported');
+  }
+
+  static alreadyInChannel(): ChannelError {
+    return new ChannelError('Already in channel', 'already_member');
+  }
+}
+
+/**
  * Generic API error for unmapped Slack errors
  */
 export class ApiError extends SlackError {
@@ -287,6 +322,7 @@ export function fromSlackError(code: string, message?: string): SlackError {
   const msg = message || 'Unknown error';
 
   switch (code) {
+    // Authentication errors
     case 'invalid_auth':
       return AuthenticationError.invalidAuth();
     case 'account_inactive':
@@ -295,6 +331,8 @@ export function fromSlackError(code: string, message?: string): SlackError {
       return AuthenticationError.tokenRevoked();
     case 'token_expired':
       return AuthenticationError.tokenExpired();
+
+    // Authorization errors
     case 'not_authed':
       return new AuthorizationError('Not authenticated', code);
     case 'missing_scope':
@@ -303,14 +341,33 @@ export function fromSlackError(code: string, message?: string): SlackError {
       return AuthorizationError.channelNotFound();
     case 'user_not_found':
       return AuthorizationError.userNotFound();
+    case 'not_in_channel':
+      return new AuthorizationError('Not in channel', code);
+
+    // Request errors
     case 'invalid_arguments':
       return RequestError.invalidArguments(msg);
     case 'msg_too_long':
       return RequestError.messageTooLong();
+
+    // Channel errors
+    case 'channel_is_archived':
+      return ChannelError.channelArchived();
+    case 'channel_not_archived':
+      return ChannelError.channelNotArchived();
+    case 'is_mpim':
+      return ChannelError.channelIsMpim();
+    case 'method_not_supported_for_channel_type':
+      return ChannelError.methodNotSupportedForChannelType();
+    case 'already_in_channel':
+      return ChannelError.alreadyInChannel();
+
+    // Server errors
     case 'internal_error':
       return ServerError.internalError();
     case 'service_unavailable':
       return ServerError.serviceUnavailable();
+
     default:
       return new ApiError(code, msg);
   }

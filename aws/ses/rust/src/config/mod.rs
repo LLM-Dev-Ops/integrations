@@ -233,11 +233,9 @@ impl SesConfigBuilder {
     ///     .credentials("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
     /// ```
     pub fn credentials(self, access_key: &str, secret_key: &str) -> Self {
-        self.credentials_provider(StaticCredentialProvider::new(
-            access_key.to_string(),
-            secret_key.to_string(),
-            None,
-        ))
+        use crate::credentials::AwsCredentials;
+        let creds = AwsCredentials::new(access_key, secret_key);
+        self.credentials_provider(StaticCredentialProvider::new(creds))
     }
 
     /// Set the request timeout.

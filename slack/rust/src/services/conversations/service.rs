@@ -69,6 +69,7 @@ pub trait ConversationsServiceTrait: Send + Sync {
 }
 
 /// Conversations service implementation
+#[derive(Clone)]
 pub struct ConversationsService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

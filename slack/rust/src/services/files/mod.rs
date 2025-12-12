@@ -317,6 +317,7 @@ pub trait FilesServiceTrait: Send + Sync {
 }
 
 /// Files service implementation
+#[derive(Clone)]
 pub struct FilesService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,

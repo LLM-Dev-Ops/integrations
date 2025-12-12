@@ -1,0 +1,21 @@
+[package]
+name = "integrations-database"
+version = "0.1.0"
+edition = "2021"
+description = "Shared RuvVector Postgres database connectivity for integrations"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+deadpool-postgres = "0.12"
+postgres-types = { version = "0.2", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+url = "2"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[[bin]]
+name = "test-connection"
+path = "src/bin/test_connection.rs"

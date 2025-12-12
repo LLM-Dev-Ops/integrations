@@ -1,0 +1,45 @@
+{
+  "name": "@integrations/google-drive",
+  "version": "0.1.0",
+  "description": "Type-safe Google Drive API integration module",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "google-drive",
+    "drive",
+    "google",
+    "api",
+    "integration",
+    "oauth2",
+    "service-account"
+  ],
+  "author": "LLM-Dev-Ops",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^3.22.4",
+    "jose": "^5.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "tsup": "^8.0.1",
+    "vitest": "^1.2.0",
+    "@types/node": "^20.11.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

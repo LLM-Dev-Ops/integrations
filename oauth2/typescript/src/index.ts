@@ -205,3 +205,70 @@ export {
   createOktaProvider,
   createAuth0Provider,
 } from "./client";
+
+// Resilience
+export {
+  // Retry
+  RetryConfig,
+  DEFAULT_RETRY_CONFIG,
+  RetryExecutor,
+  OAuth2RetryExecutor,
+  MockRetryExecutor,
+  createRetryExecutor,
+  createMockRetryExecutor,
+
+  // Circuit Breaker
+  CircuitState,
+  CircuitBreakerConfig,
+  DEFAULT_CIRCUIT_BREAKER_CONFIG,
+  CircuitBreaker,
+  OAuth2CircuitBreaker,
+  MockCircuitBreaker,
+  createCircuitBreaker,
+  createMockCircuitBreaker,
+
+  // Rate Limiter
+  RateLimiterConfig,
+  DEFAULT_RATE_LIMITS,
+  RateLimiter,
+  TokenBucketRateLimiter,
+  MockRateLimiter,
+  createRateLimiter,
+  createMockRateLimiter,
+} from "./resilience";
+
+// Telemetry
+export {
+  // Metrics
+  MetricLabels,
+  Counter,
+  Gauge,
+  Histogram,
+  OAuth2Metrics,
+  noOpMetrics,
+  InMemoryMetrics,
+  createInMemoryMetrics,
+
+  // Tracing
+  SpanAttributes,
+  SpanStatus,
+  Span,
+  Tracer,
+  OAuth2SpanNames,
+  OAuth2SpanAttributes,
+  noOpTracer,
+  InMemorySpan,
+  InMemoryTracer,
+  createInMemoryTracer,
+
+  // Logging
+  LogLevel,
+  OAuth2LogContext,
+  Logger,
+  noOpLogger,
+  LogEntry,
+  InMemoryLogger,
+  ConsoleLogger,
+  createInMemoryLogger,
+  createConsoleLogger,
+} from "./telemetry";

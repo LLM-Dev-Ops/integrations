@@ -285,6 +285,7 @@ pub trait ReactionsServiceTrait: Send + Sync {
 }
 
 /// Reactions service implementation
+#[derive(Clone)]
 pub struct ReactionsService {
     transport: Arc<dyn HttpTransport>,
     auth: AuthManager,
