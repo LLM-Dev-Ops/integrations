@@ -1,0 +1,88 @@
+{
+  "name": "@aws-integrations/iam",
+  "version": "1.0.0",
+  "description": "AWS IAM and STS TypeScript client for role assumption, policy simulation, and credential management",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js"
+    },
+    "./credentials": {
+      "types": "./dist/credentials/index.d.ts",
+      "import": "./dist/credentials/index.js"
+    },
+    "./error": {
+      "types": "./dist/error/index.d.ts",
+      "import": "./dist/error/index.js"
+    },
+    "./iam": {
+      "types": "./dist/iam/index.d.ts",
+      "import": "./dist/iam/index.js"
+    },
+    "./sts": {
+      "types": "./dist/sts/index.d.ts",
+      "import": "./dist/sts/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "aws",
+    "iam",
+    "sts",
+    "security",
+    "authentication",
+    "authorization",
+    "role-assumption",
+    "credentials",
+    "policy-simulation",
+    "typescript"
+  ],
+  "author": "SPARC Integration Framework",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sparc-framework/integrations.git",
+    "directory": "aws/iam/typescript"
+  }
+}

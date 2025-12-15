@@ -9,7 +9,9 @@
     "db:build": "cd shared/database && npm run build"
   },
   "dependencies": {
-    "better-sqlite3": "^12.5.0",
+    "better-sqlite3": "^12.5.0"
+  },
+  "devDependencies": {
     "claude-flow": "^2.7.47"
   }
 }

@@ -1,0 +1,45 @@
+{
+  "name": "@integrations/xai-grok",
+  "version": "0.1.0",
+  "description": "xAI Grok API integration - thin adapter for chat, embeddings, and image generation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "xai",
+    "grok",
+    "llm",
+    "ai",
+    "chat",
+    "embeddings",
+    "streaming"
+  ],
+  "author": "LLMDevOps",
+  "license": "LLMDevOps-PSACL-1.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

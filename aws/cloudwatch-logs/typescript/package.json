@@ -1,0 +1,25 @@
+{
+  "name": "@integrations/aws-cloudwatch-logs",
+  "version": "0.1.0",
+  "description": "AWS CloudWatch Logs integration for LLM Dev Ops",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "lint": "eslint src",
+    "format": "prettier --write src"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

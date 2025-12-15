@@ -1,0 +1,36 @@
+{
+  "name": "@integrations/gcp-storage",
+  "version": "1.0.0",
+  "description": "Google Cloud Storage Integration Module - Production-ready, type-safe interface for GCS operations",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "gcp",
+    "google-cloud",
+    "storage",
+    "gcs",
+    "object-storage",
+    "cloud"
+  ],
+  "author": "LLM Dev Ops Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
