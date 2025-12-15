@@ -20,7 +20,6 @@ import {
   CreateDirectoryRequest,
   DeleteDirectoryRequest,
   ListDirectoryRequest,
-  DeleteFileRequest,
 } from "../types/requests.js";
 import {
   DirectoryInfo,
@@ -38,15 +37,18 @@ export class DirectoryService {
   private config: AzureFilesConfig;
   private transport: HttpTransport;
   private authProvider: AzureAuthProvider;
+  private fileService?: FileService;
 
   constructor(
     config: AzureFilesConfig,
     transport: HttpTransport,
-    authProvider: AzureAuthProvider
+    authProvider: AzureAuthProvider,
+    fileService?: FileService
   ) {
     this.config = config;
     this.transport = transport;
     this.authProvider = authProvider;
+    this.fileService = fileService;
   }
 
   /**
@@ -193,14 +195,20 @@ export class DirectoryService {
 
   /**
    * Delete a directory and all its contents recursively.
+   * If fileService is not provided, uses the one from constructor.
    */
   async deleteRecursive(
     share: string,
     path: string,
-    fileService: FileService
+    fileService?: FileService
   ): Promise<void> {
     validateShareName(share);
     validatePath(path);
+
+    const fs = fileService ?? this.fileService;
+    if (!fs) {
+      throw new Error("FileService is required for deleteRecursive operation");
+    }
 
     // List all contents
     const entries: DirectoryEntry[] = [];
@@ -211,14 +219,14 @@ export class DirectoryService {
     // Delete files first
     for (const entry of entries) {
       if (entry.type === "file") {
-        await fileService.delete({ share, path: entry.info.path });
+        await fs.delete({ share, path: entry.info.path });
       }
     }
 
     // Delete subdirectories recursively
     for (const entry of entries) {
       if (entry.type === "directory") {
-        await this.deleteRecursive(share, entry.info.path, fileService);
+        await this.deleteRecursive(share, entry.info.path, fs);
       }
     }
 
@@ -237,8 +245,8 @@ export class DirectoryService {
       /<File><Name>([^<]+)<\/Name>[\s\S]*?<Properties>([\s\S]*?)<\/Properties>[\s\S]*?<\/File>/g
     );
     for (const match of fileMatches) {
-      const name = this.decodeXmlEntities(match[1]);
-      const propsXml = match[2];
+      const name = match[1] ? this.decodeXmlEntities(match[1]) : "";
+      const propsXml = match[2] ?? "";
 
       const contentLength = this.extractXmlValue(propsXml, "Content-Length") ?? "0";
       const lastModified = this.extractXmlValue(propsXml, "Last-Modified");
@@ -261,8 +269,8 @@ export class DirectoryService {
       /<Directory><Name>([^<]+)<\/Name>[\s\S]*?<Properties>([\s\S]*?)<\/Properties>[\s\S]*?<\/Directory>/g
     );
     for (const match of dirMatches) {
-      const name = this.decodeXmlEntities(match[1]);
-      const propsXml = match[2];
+      const name = match[1] ? this.decodeXmlEntities(match[1]) : "";
+      const propsXml = match[2] ?? "";
 
       const lastModified = this.extractXmlValue(propsXml, "Last-Modified");
       const etag = this.extractXmlValue(propsXml, "Etag") ?? "";

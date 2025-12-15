@@ -1,0 +1,38 @@
+{
+  "name": "@integrations/azure-cognitive-search",
+  "version": "1.0.0",
+  "description": "Azure Cognitive Search integration module - thin adapter layer for hybrid search, vector search, and document indexing",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "azure",
+    "cognitive-search",
+    "vector-search",
+    "hybrid-search",
+    "rag",
+    "semantic-search"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

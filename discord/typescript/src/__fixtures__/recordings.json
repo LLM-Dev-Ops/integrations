@@ -1,0 +1,130 @@
+{
+  "version": "1.0",
+  "created": "2025-12-15T00:00:00.000Z",
+  "discordApiVersion": "10",
+  "interactions": [
+    {
+      "id": "fixture-webhook-execute-1",
+      "timestamp": "2025-12-15T00:00:00.000Z",
+      "operation": "webhook:execute",
+      "request": {
+        "method": "POST",
+        "url": "/webhooks/123456789012345678/test-token",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "bodyHash": "abc123",
+        "body": {
+          "content": "Test message"
+        }
+      },
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "headers": {
+          "x-ratelimit-remaining": "29",
+          "x-ratelimit-bucket": "webhook-bucket"
+        },
+        "body": {
+          "id": "987654321098765432",
+          "channel_id": "111222333444555666",
+          "content": "Test message",
+          "timestamp": "2025-12-15T00:00:00.000Z",
+          "tts": false,
+          "mention_everyone": false,
+          "embeds": [],
+          "webhook_id": "123456789012345678"
+        }
+      },
+      "durationMs": 150,
+      "rateLimit": {
+        "bucket": "webhook-bucket",
+        "remaining": 29,
+        "resetAfter": 60
+      }
+    },
+    {
+      "id": "fixture-message-send-1",
+      "timestamp": "2025-12-15T00:00:01.000Z",
+      "operation": "message:send",
+      "request": {
+        "method": "POST",
+        "url": "/channels/111222333444555666/messages",
+        "headers": {
+          "content-type": "application/json",
+          "user-agent": "LLMDevOps-Discord/1.0.0"
+        },
+        "bodyHash": "def456",
+        "body": {
+          "content": "Hello from test!"
+        }
+      },
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "headers": {
+          "x-ratelimit-remaining": "4",
+          "x-ratelimit-bucket": "channel-messages"
+        },
+        "body": {
+          "id": "555666777888999000",
+          "channel_id": "111222333444555666",
+          "content": "Hello from test!",
+          "timestamp": "2025-12-15T00:00:01.000Z",
+          "tts": false,
+          "mention_everyone": false,
+          "embeds": [],
+          "author": {
+            "id": "999888777666555444",
+            "username": "TestBot",
+            "discriminator": "0000",
+            "bot": true
+          }
+        }
+      },
+      "durationMs": 200,
+      "rateLimit": {
+        "bucket": "channel-messages",
+        "remaining": 4,
+        "resetAfter": 5
+      }
+    },
+    {
+      "id": "fixture-thread-create-1",
+      "timestamp": "2025-12-15T00:00:02.000Z",
+      "operation": "channel:createThread",
+      "request": {
+        "method": "POST",
+        "url": "/channels/111222333444555666/threads",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "bodyHash": "ghi789",
+        "body": {
+          "name": "Test Thread",
+          "auto_archive_duration": 1440
+        }
+      },
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "headers": {},
+        "body": {
+          "id": "777888999000111222",
+          "type": 11,
+          "guild_id": "333444555666777888",
+          "name": "Test Thread",
+          "parent_id": "111222333444555666",
+          "owner_id": "999888777666555444",
+          "thread_metadata": {
+            "archived": false,
+            "auto_archive_duration": 1440,
+            "archive_timestamp": "2025-12-16T00:00:02.000Z",
+            "locked": false
+          }
+        }
+      },
+      "durationMs": 180
+    }
+  ]
+}

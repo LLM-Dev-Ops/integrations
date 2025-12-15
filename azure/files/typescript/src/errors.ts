@@ -252,15 +252,15 @@ export function parseAzureFilesError(
   headers?: Record<string, string>,
   requestId?: string
 ): AzureFilesError {
-  let errorCode = headers?.["x-ms-error-code"];
-  let errorMessage = `HTTP ${status}`;
+  let errorCode: string | undefined = headers?.["x-ms-error-code"];
+  let errorMessage: string = `HTTP ${status}`;
 
   // Try to parse XML error response
   if (body && body.includes("<Error>")) {
     const codeMatch = body.match(/<Code>([^<]+)<\/Code>/);
     const messageMatch = body.match(/<Message>([^<]+)<\/Message>/);
-    if (codeMatch) errorCode = codeMatch[1];
-    if (messageMatch) errorMessage = messageMatch[1];
+    if (codeMatch?.[1]) errorCode = codeMatch[1];
+    if (messageMatch?.[1]) errorMessage = messageMatch[1];
   }
 
   // Parse retry-after header

@@ -13,7 +13,7 @@ import {
   validatePath,
   getTimeout,
 } from "../config/index.js";
-import { AzureFilesError, parseAzureFilesError } from "../errors.js";
+import { parseAzureFilesError } from "../errors.js";
 import { AzureAuthProvider } from "../auth/index.js";
 import { HttpTransport, isSuccess, getRequestId, getHeader } from "../transport/index.js";
 import {
@@ -23,11 +23,13 @@ import {
   DeleteFileRequest,
   GetPropertiesRequest,
   SetMetadataRequest,
+  CopyFileRequest,
 } from "../types/requests.js";
 import {
   FileInfo,
   FileContent,
   FileProperties,
+  CopyStatus,
   parseFileInfo,
   parseFileProperties,
 } from "../types/common.js";
@@ -402,6 +404,66 @@ export class FileService {
         getRequestId(response)
       );
     }
+  }
+
+  /**
+   * Copy a file from source to destination.
+   */
+  async copy(request: CopyFileRequest): Promise<CopyStatus> {
+    validateShareName(request.sourceShare);
+    validatePath(request.sourcePath);
+    validateShareName(request.destShare);
+    validatePath(request.destPath);
+
+    const endpoint = resolveEndpoint(this.config);
+    const destUrl = `${endpoint}/${request.destShare}/${encodePath(request.destPath)}`;
+    const sourceUrl = `${endpoint}/${request.sourceShare}/${encodePath(request.sourcePath)}`;
+
+    const headers: Record<string, string> = {
+      "x-ms-copy-source": sourceUrl,
+    };
+
+    if (request.metadata) {
+      for (const [key, value] of Object.entries(request.metadata)) {
+        headers[`x-ms-meta-${key}`] = value;
+      }
+    }
+
+    const signed = this.authProvider.signRequest("PUT", destUrl, headers, 0);
+
+    const response = await this.transport.send({
+      method: "PUT",
+      url: signed.url,
+      headers: signed.headers,
+      timeout: getTimeout(this.config, "write"),
+    });
+
+    if (!isSuccess(response)) {
+      throw parseAzureFilesError(
+        response.status,
+        response.body.toString(),
+        response.headers,
+        getRequestId(response)
+      );
+    }
+
+    // Parse copy status from response
+    const copyStatus = getHeader(response, "x-ms-copy-status");
+    const copyId = getHeader(response, "x-ms-copy-id");
+
+    if (copyStatus === "success") {
+      return { status: "success" };
+    } else if (copyStatus === "pending" && copyId) {
+      return { status: "pending", copyId };
+    } else if (copyStatus === "aborted") {
+      return { status: "aborted" };
+    } else if (copyStatus === "failed") {
+      const reason = getHeader(response, "x-ms-copy-status-description") ?? "Unknown error";
+      return { status: "failed", reason };
+    }
+
+    // Default to success if no status header
+    return { status: "success" };
   }
 
   /**

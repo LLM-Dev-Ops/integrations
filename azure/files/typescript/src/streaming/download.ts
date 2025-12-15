@@ -15,7 +15,7 @@ import {
 } from "../config/index.js";
 import { parseAzureFilesError } from "../errors.js";
 import { AzureAuthProvider } from "../auth/index.js";
-import { HttpTransport, isSuccess, getRequestId, getHeader } from "../transport/index.js";
+import { HttpTransport, isSuccess, getRequestId } from "../transport/index.js";
 import { DownloadStreamRequest, DownloadRangeRequest } from "../types/requests.js";
 import { FileProperties, parseFileProperties } from "../types/common.js";
 

@@ -7,7 +7,7 @@
 import { AzureCredentials, API_VERSION } from "../config/index.js";
 import { ConfigurationError } from "../errors.js";
 import { SharedKeyAuthProvider, createSharedKeyAuth } from "./shared-key.js";
-import { SasTokenAuthProvider, createSasTokenAuth, SasGenerator, createSasGenerator } from "./sas.js";
+import { SasTokenAuthProvider, createSasTokenAuth } from "./sas.js";
 
 export { SharedKeyAuthProvider, createSharedKeyAuth } from "./shared-key.js";
 export {
@@ -80,7 +80,7 @@ class SasTokenAuthProviderWrapper implements AzureAuthProvider {
   }
 
   signRequest(
-    method: string,
+    _method: string,
     url: string,
     headers: Record<string, string>,
     _contentLength?: number

@@ -157,8 +157,8 @@ export class ShareService {
     );
 
     for (const match of shareMatches) {
-      const name = this.decodeXmlEntities(match[1]);
-      const propsXml = match[2];
+      const name = match[1] ? this.decodeXmlEntities(match[1]) : "";
+      const propsXml = match[2] ?? "";
 
       const lastModified = this.extractXmlValue(propsXml, "Last-Modified");
       const etag = this.extractXmlValue(propsXml, "Etag") ?? "";
