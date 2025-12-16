@@ -1,0 +1,32 @@
+{
+  "name": "@integrations/aws-dynamodb",
+  "version": "0.1.0",
+  "description": "AWS DynamoDB integration for Claude Code",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "aws",
+    "dynamodb",
+    "integration",
+    "database"
+  ],
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.679.0",
+    "@aws-sdk/lib-dynamodb": "^3.679.0",
+    "@aws-sdk/credential-providers": "^3.679.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

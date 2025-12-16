@@ -143,6 +143,7 @@ export interface ArtifactList {
 }
 
 export interface ListArtifactsParams {
+  name?: string;
   per_page?: number;
   page?: number;
 }
@@ -185,6 +186,133 @@ export interface CreateVariableRequest {
 export interface UpdateVariableRequest {
   name?: string;
   value?: string;
+}
+
+// Timing and Usage types
+export interface BillableTime {
+  UBUNTU?: {
+    total_ms: number;
+    jobs: number;
+  };
+  MACOS?: {
+    total_ms: number;
+    jobs: number;
+  };
+  WINDOWS?: {
+    total_ms: number;
+    jobs: number;
+  };
+}
+
+export interface WorkflowTiming {
+  billable: BillableTime;
+  run_duration_ms: number;
+}
+
+export interface WorkflowUsage {
+  billable: BillableTime;
+}
+
+// Cache types
+export interface ActionCache {
+  id: number;
+  ref: string;
+  key: string;
+  version: string;
+  size_in_bytes: number;
+  created_at: string;
+  last_accessed_at: string;
+}
+
+export interface CacheList {
+  total_count: number;
+  actions_caches: ActionCache[];
+}
+
+export interface CacheUsage {
+  full_name: string;
+  active_caches_size_in_bytes: number;
+  active_caches_count: number;
+}
+
+export interface ListCachesParams {
+  key?: string;
+  ref?: string;
+  sort?: 'created_at' | 'last_accessed_at' | 'size_in_bytes';
+  direction?: 'asc' | 'desc';
+  per_page?: number;
+  page?: number;
+}
+
+// Environment types
+export interface Reviewer {
+  type: 'User' | 'Team';
+  reviewer: {
+    id: number;
+    login?: string;
+    name?: string;
+    type: string;
+  };
+}
+
+export interface ProtectionRule {
+  id: number;
+  node_id: string;
+  type: 'required_reviewers' | 'wait_timer' | 'branch_policy';
+  wait_timer?: number;
+  reviewers?: Reviewer[];
+}
+
+export interface BranchPolicy {
+  protected_branches: boolean;
+  custom_branch_policies: boolean;
+}
+
+export interface Environment {
+  id: number;
+  node_id: string;
+  name: string;
+  url: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  protection_rules: ProtectionRule[];
+  deployment_branch_policy?: BranchPolicy;
+}
+
+export interface EnvironmentList {
+  total_count: number;
+  environments: Environment[];
+}
+
+export interface Deployment {
+  id: number;
+  node_id: string;
+  sha: string;
+  ref: string;
+  task: string;
+  environment: string;
+  creator: {
+    id: number;
+    login: string;
+    type: string;
+  };
+  created_at: string;
+  updated_at: string;
+  statuses_url: string;
+}
+
+export interface PendingDeployment {
+  environment: {
+    id: number;
+    name: string;
+    url: string;
+    html_url: string;
+  };
+  wait_timer: number;
+  wait_timer_started_at?: string;
+  current_user_can_approve: boolean;
+  reviewers: Reviewer[];
 }
 
 /**
@@ -335,6 +463,175 @@ export class ActionsService {
     });
   }
 
+  /**
+   * Re-run only the failed jobs in a workflow run
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param runId - Workflow run ID
+   * @param options - Request options
+   */
+  async rerunFailedJobs(
+    owner: string,
+    repo: string,
+    runId: number,
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.orchestrator.request<void>({
+      method: 'POST',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/rerun-failed-jobs`,
+      ...options,
+    });
+  }
+
+  /**
+   * Delete a workflow run
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param runId - Workflow run ID
+   * @param options - Request options
+   */
+  async deleteWorkflowRun(
+    owner: string,
+    repo: string,
+    runId: number,
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.orchestrator.request<void>({
+      method: 'DELETE',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}`,
+      ...options,
+    });
+  }
+
+  /**
+   * Delete workflow run logs
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param runId - Workflow run ID
+   * @param options - Request options
+   */
+  async deleteWorkflowRunLogs(
+    owner: string,
+    repo: string,
+    runId: number,
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.orchestrator.request<void>({
+      method: 'DELETE',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/logs`,
+      ...options,
+    });
+  }
+
+  /**
+   * List artifacts for a workflow run
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param runId - Workflow run ID
+   * @param params - Query parameters
+   * @param options - Request options
+   * @returns List of artifacts
+   */
+  async listWorkflowRunArtifacts(
+    owner: string,
+    repo: string,
+    runId: number,
+    params?: ListArtifactsParams,
+    options?: RequestOptions
+  ): Promise<ArtifactList> {
+    const query: Record<string, string> = {};
+    if (params) {
+      if (params.name) query.name = params.name;
+      if (params.per_page) query.per_page = params.per_page.toString();
+      if (params.page) query.page = params.page.toString();
+    }
+
+    return this.orchestrator.request<ArtifactList>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/artifacts`,
+      query: Object.keys(query).length > 0 ? query : undefined,
+      ...options,
+    });
+  }
+
+  /**
+   * Get workflow run timing information
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param runId - Workflow run ID
+   * @param options - Request options
+   * @returns Workflow timing information
+   */
+  async getWorkflowRunTiming(
+    owner: string,
+    repo: string,
+    runId: number,
+    options?: RequestOptions
+  ): Promise<WorkflowTiming> {
+    return this.orchestrator.request<WorkflowTiming>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/timing`,
+      ...options,
+    });
+  }
+
+  /**
+   * List workflow runs for a specific workflow
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param workflowId - Workflow ID or filename
+   * @param params - Query parameters
+   * @param options - Request options
+   * @returns List of workflow runs
+   */
+  async listWorkflowRunsForWorkflow(
+    owner: string,
+    repo: string,
+    workflowId: number | string,
+    params?: ListWorkflowRunsParams,
+    options?: RequestOptions
+  ): Promise<WorkflowRunList> {
+    const query: Record<string, string> = {};
+    if (params) {
+      if (params.actor) query.actor = params.actor;
+      if (params.branch) query.branch = params.branch;
+      if (params.event) query.event = params.event;
+      if (params.status) query.status = params.status;
+      if (params.created) query.created = params.created;
+      if (params.exclude_pull_requests !== undefined) query.exclude_pull_requests = params.exclude_pull_requests.toString();
+      if (params.per_page) query.per_page = params.per_page.toString();
+      if (params.page) query.page = params.page.toString();
+    }
+
+    return this.orchestrator.request<WorkflowRunList>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflowId.toString())}/runs`,
+      query: Object.keys(query).length > 0 ? query : undefined,
+      ...options,
+    });
+  }
+
+  /**
+   * Get workflow usage (timing/billing information)
+   * @param owner - Repository owner
+   * @param repo - Repository name
+   * @param workflowId - Workflow ID or filename
+   * @param options - Request options
+   * @returns Workflow usage information
+   */
+  async getWorkflowUsage(
+    owner: string,
+    repo: string,
+    workflowId: number | string,
+    options?: RequestOptions
+  ): Promise<WorkflowUsage> {
+    return this.orchestrator.request<WorkflowUsage>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflowId.toString())}/timing`,
+      ...options,
+    });
+  }
+
   // Job methods
   async listJobs(
     owner: string,
@@ -384,6 +681,7 @@ export class ActionsService {
   ): Promise<ArtifactList> {
     const query: Record<string, string> = {};
     if (params) {
+      if (params.name) query.name = params.name;
       if (params.per_page) query.per_page = params.per_page.toString();
       if (params.page) query.page = params.page.toString();
     }
@@ -557,6 +855,147 @@ export class ActionsService {
     await this.orchestrator.request<void>({
       method: 'DELETE',
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/variables/${encodeURIComponent(variableName)}`,
+      ...options,
+    });
+  }
+
+  // Cache methods
+  async listCaches(
+    owner: string,
+    repo: string,
+    params?: ListCachesParams,
+    options?: RequestOptions
+  ): Promise<CacheList> {
+    const query: Record<string, string> = {};
+    if (params) {
+      if (params.key) query.key = params.key;
+      if (params.ref) query.ref = params.ref;
+      if (params.sort) query.sort = params.sort;
+      if (params.direction) query.direction = params.direction;
+      if (params.per_page) query.per_page = params.per_page.toString();
+      if (params.page) query.page = params.page.toString();
+    }
+
+    return this.orchestrator.request<CacheList>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/caches`,
+      query: Object.keys(query).length > 0 ? query : undefined,
+      ...options,
+    });
+  }
+
+  async getCache(
+    owner: string,
+    repo: string,
+    cacheId: number,
+    options?: RequestOptions
+  ): Promise<ActionCache> {
+    return this.orchestrator.request<ActionCache>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/caches/${cacheId}`,
+      ...options,
+    });
+  }
+
+  async deleteCache(
+    owner: string,
+    repo: string,
+    cacheId: number,
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.orchestrator.request<void>({
+      method: 'DELETE',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/caches/${cacheId}`,
+      ...options,
+    });
+  }
+
+  async deleteCacheByKey(
+    owner: string,
+    repo: string,
+    key: string,
+    ref?: string,
+    options?: RequestOptions
+  ): Promise<void> {
+    const query: Record<string, string> = { key };
+    if (ref) query.ref = ref;
+
+    await this.orchestrator.request<void>({
+      method: 'DELETE',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/caches`,
+      query,
+      ...options,
+    });
+  }
+
+  async getCacheUsage(
+    owner: string,
+    repo: string,
+    options?: RequestOptions
+  ): Promise<CacheUsage> {
+    return this.orchestrator.request<CacheUsage>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/cache/usage`,
+      ...options,
+    });
+  }
+
+  // Environment methods
+  async listEnvironments(
+    owner: string,
+    repo: string,
+    options?: RequestOptions
+  ): Promise<EnvironmentList> {
+    return this.orchestrator.request<EnvironmentList>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments`,
+      ...options,
+    });
+  }
+
+  async getEnvironment(
+    owner: string,
+    repo: string,
+    environmentName: string,
+    options?: RequestOptions
+  ): Promise<Environment> {
+    return this.orchestrator.request<Environment>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/environments/${encodeURIComponent(environmentName)}`,
+      ...options,
+    });
+  }
+
+  async getPendingDeployments(
+    owner: string,
+    repo: string,
+    runId: number,
+    options?: RequestOptions
+  ): Promise<PendingDeployment[]> {
+    return this.orchestrator.request<PendingDeployment[]>({
+      method: 'GET',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/pending_deployments`,
+      ...options,
+    });
+  }
+
+  async approveDeployment(
+    owner: string,
+    repo: string,
+    runId: number,
+    environmentIds: number[],
+    state: 'approved' | 'rejected',
+    comment: string,
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.orchestrator.request<void>({
+      method: 'POST',
+      path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/pending_deployments`,
+      body: {
+        environment_ids: environmentIds,
+        state,
+        comment,
+      },
       ...options,
     });
   }

@@ -480,7 +480,7 @@ export class InMemoryTracer implements Tracer {
     fn: (span: SpanContext) => T | Promise<T>,
     attributes?: Record<string, unknown>
   ): Promise<T> {
-    const span = this.startSpan(name, attributes);
+    const span = this.startSpan(name, attributes) as InMemorySpanContext;
     try {
       const result = await fn(span);
       if (span.status === 'UNSET') {

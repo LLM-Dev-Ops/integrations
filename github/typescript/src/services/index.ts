@@ -91,7 +91,21 @@ export type {
   Variable,
   VariableList,
   CreateVariableRequest,
-  UpdateVariableRequest
+  UpdateVariableRequest,
+  BillableTime,
+  WorkflowTiming,
+  WorkflowUsage,
+  ActionCache,
+  CacheList,
+  CacheUsage,
+  ListCachesParams,
+  Reviewer,
+  ProtectionRule,
+  BranchPolicy,
+  Environment,
+  EnvironmentList,
+  Deployment,
+  PendingDeployment
 } from './actions';
 
 // Export types from users service

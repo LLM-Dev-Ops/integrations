@@ -1,0 +1,1 @@
+{"root":["./src/client/index.ts","./src/config/index.ts","./src/errors/index.ts","./src/observability/index.ts","./src/resilience/index.ts","./src/services/collection.ts","./src/services/index.ts","./src/services/transaction.ts","./src/types/index.ts"],"errors":true,"version":"5.9.3"}

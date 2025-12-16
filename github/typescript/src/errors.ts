@@ -107,6 +107,32 @@ export enum GitHubErrorKind {
   /** GraphQL node limit exceeded. */
   NodeLimitExceeded = 'node_limit_exceeded',
 
+  // Actions-specific errors
+  /** Workflow not found. */
+  WorkflowNotFound = 'workflow_not_found',
+  /** Workflow run not found. */
+  RunNotFound = 'run_not_found',
+  /** Job not found. */
+  JobNotFound = 'job_not_found',
+  /** Artifact not found. */
+  ArtifactNotFound = 'artifact_not_found',
+  /** Artifact has expired. */
+  ArtifactExpired = 'artifact_expired',
+  /** Environment not found. */
+  EnvironmentNotFound = 'environment_not_found',
+  /** Cache not found. */
+  CacheNotFound = 'cache_not_found',
+  /** Workflow is disabled. */
+  WorkflowDisabled = 'workflow_disabled',
+  /** Run is in progress and cannot be modified. */
+  RunInProgress = 'run_in_progress',
+  /** Run was cancelled. */
+  RunCancelled = 'run_cancelled',
+  /** Invalid workflow dispatch inputs. */
+  InvalidInputs = 'invalid_inputs',
+  /** Invalid git ref. */
+  InvalidRef = 'invalid_ref',
+
   // Generic
   /** Unknown error. */
   Unknown = 'unknown',
