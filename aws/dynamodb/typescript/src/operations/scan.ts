@@ -138,10 +138,14 @@ export async function scan<T = Record<string, AttributeValue>>(
     scannedCount: response.ScannedCount || 0,
     consumedCapacity: response.ConsumedCapacity
       ? {
-          tableName: response.ConsumedCapacity.TableName || tableName,
-          capacityUnits: response.ConsumedCapacity.CapacityUnits || 0,
-          readCapacityUnits: response.ConsumedCapacity.ReadCapacityUnits,
-          writeCapacityUnits: response.ConsumedCapacity.WriteCapacityUnits,
+          tableCapacity: response.ConsumedCapacity.CapacityUnits,
+          globalSecondaryIndexCapacity: response.ConsumedCapacity.GlobalSecondaryIndexes
+            ? Object.fromEntries(
+                Object.entries(response.ConsumedCapacity.GlobalSecondaryIndexes).map(
+                  ([name, capacity]) => [name, capacity.CapacityUnits || 0]
+                )
+              )
+            : undefined,
         }
       : undefined,
   };

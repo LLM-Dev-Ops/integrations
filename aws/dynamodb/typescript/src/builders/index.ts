@@ -4,5 +4,8 @@
  * Fluent builders for constructing DynamoDB queries and operations.
  */
 
-// Placeholder for builder implementation
-export {};
+export { QueryBuilder, QueryPaginator } from './query.js';
+export type { QueryOptions, QueryResult } from './query.js';
+export { ScanBuilder, ScanPaginator } from './scan.js';
+export { UpdateExpressionBuilder } from './update.js';
+export { ConditionBuilder } from './condition.js';

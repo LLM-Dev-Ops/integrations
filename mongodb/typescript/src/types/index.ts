@@ -1064,7 +1064,7 @@ export function validatePipeline(pipeline: PipelineStage[]): string[] {
       return;
     }
 
-    const operator = stageKeys[0];
+    const operator = stageKeys[0]!;
     if (!operator.startsWith('$')) {
       errors.push(`Stage ${index} operator must start with $ (got "${operator}")`);
     }

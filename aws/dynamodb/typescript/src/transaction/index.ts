@@ -4,5 +4,7 @@
  * Transaction support for atomic multi-item operations.
  */
 
-// Placeholder for transaction implementation
-export {};
+export { TransactionBuilder } from './builder.js';
+export type { UpdateExpression } from './builder.js';
+export { parseCancellationReasons, formatCancellationMessage } from './errors.js';
+export type { CancellationReason } from './errors.js';

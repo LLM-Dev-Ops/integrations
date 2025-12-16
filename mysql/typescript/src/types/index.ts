@@ -999,7 +999,7 @@ export function createRow(values: Value[]): Row {
       if (index < 0 || index >= values.length) {
         throw new Error(`Column index ${index} out of bounds (0-${values.length - 1})`);
       }
-      return values[index];
+      return values[index]!;
     },
   };
 }
@@ -1314,3 +1314,167 @@ export const MAX_QUERY_SIZE_BYTES = 16 * 1024 * 1024;
  * Default stream batch size.
  */
 export const DEFAULT_STREAM_BATCH_SIZE = 1000;
+
+// ============================================================================
+// Prepared Statement Types
+// ============================================================================
+
+/**
+ * Prepared statement handle.
+ */
+export interface PreparedStatement {
+  /** Unique statement identifier */
+  id: string;
+  /** Original SQL query */
+  sql: string;
+  /** Number of parameters expected */
+  paramCount: number;
+  /** Column metadata for result set */
+  columns: ColumnMetadata[];
+  /** When the statement was prepared */
+  createdAt: Date;
+}
+
+// ============================================================================
+// Query Options
+// ============================================================================
+
+/**
+ * Options for query execution.
+ */
+export interface QueryOptions {
+  /** Query timeout in milliseconds */
+  timeout?: number;
+  /** Threshold for slow query logging (ms) */
+  slowQueryThreshold?: number;
+  /** Force routing to primary */
+  forcePrimary?: boolean;
+}
+
+/**
+ * Options for streaming query results.
+ */
+export interface StreamOptions extends QueryOptions {
+  /** Number of rows to fetch per batch */
+  batchSize?: number;
+  /** High water mark for backpressure */
+  highWaterMark?: number;
+}
+
+/**
+ * Async iterable stream of rows.
+ */
+export interface RowStream extends AsyncIterable<Row> {
+  /** Closes the stream and releases resources */
+  close(): Promise<void>;
+  /** Whether the stream has been closed */
+  readonly closed: boolean;
+}
+
+// ============================================================================
+// Table Statistics
+// ============================================================================
+
+/**
+ * Extended table statistics.
+ */
+export interface TableStats {
+  /** Table name */
+  name: string;
+  /** Database name */
+  database: string;
+  /** Approximate row count */
+  rows: number;
+  /** Data size in bytes */
+  dataLength: number;
+  /** Index size in bytes */
+  indexLength: number;
+  /** Average row length in bytes */
+  avgRowLength: number;
+  /** Free space in bytes */
+  dataFree: number;
+  /** Next auto-increment value */
+  autoIncrement?: number;
+  /** Table creation time */
+  createTime: Date;
+  /** Last update time */
+  updateTime?: Date;
+  /** Last check time */
+  checkTime?: Date;
+}
+
+// ============================================================================
+// Server Status Types
+// ============================================================================
+
+/**
+ * MySQL server status information.
+ */
+export interface ServerStatus {
+  /** Server version string */
+  version: string;
+  /** Server uptime in seconds */
+  uptime: number;
+  /** Total connections since startup */
+  connections: number;
+  /** Currently connected threads */
+  threadsConnected: number;
+  /** Currently running threads */
+  threadsRunning: number;
+  /** Threads created since startup */
+  threadsCreated: number;
+  /** Questions (queries) executed */
+  questions: number;
+  /** Slow queries count */
+  slowQueries: number;
+  /** Bytes received */
+  bytesReceived: number;
+  /** Bytes sent */
+  bytesSent: number;
+  /** InnoDB buffer pool size */
+  innodbBufferPoolSize?: number;
+  /** InnoDB buffer pool pages data */
+  innodbBufferPoolPagesData?: number;
+  /** InnoDB buffer pool pages free */
+  innodbBufferPoolPagesFree?: number;
+  /** Server read-only mode */
+  readOnly: boolean;
+}
+
+/**
+ * MySQL process/connection information.
+ */
+export interface ProcessInfo {
+  /** Process ID */
+  id: number;
+  /** User name */
+  user: string;
+  /** Client host */
+  host: string;
+  /** Current database */
+  database?: string;
+  /** Current command */
+  command: string;
+  /** Time in current state (seconds) */
+  time: number;
+  /** Current state */
+  state?: string;
+  /** Current query (may be truncated) */
+  info?: string;
+}
+
+// ============================================================================
+// Route Decision Type
+// ============================================================================
+
+/**
+ * Result of a routing decision.
+ */
+export interface RouteDecision {
+  /** Target database role */
+  target: 'primary' | 'replica';
+  /** Reason for the routing decision */
+  reason: string;
+  /** Statement type detected */
+  statementType: string;
+}

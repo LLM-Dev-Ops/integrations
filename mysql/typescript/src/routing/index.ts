@@ -308,6 +308,18 @@ export class StatementParser {
 // ============================================================================
 
 /**
+ * Route decision result.
+ */
+export interface RouteDecision {
+  /** Target database role */
+  target: 'primary' | 'replica';
+  /** Reason for the routing decision */
+  reason: string;
+  /** Statement type detected */
+  statementType: StatementType;
+}
+
+/**
  * Query router for determining primary vs replica routing.
  *
  * Implements intelligent routing logic based on:
@@ -318,12 +330,20 @@ export class StatementParser {
  */
 export class QueryRouter {
   private readonly parser: StatementParser;
+  private readonly config: RoutingConfig;
 
   /**
    * Creates a new QueryRouter instance.
+   *
+   * @param config - Optional routing configuration
    */
-  constructor() {
+  constructor(config?: Partial<RoutingConfig>) {
     this.parser = new StatementParser();
+    this.config = {
+      autoRouteReads: config?.autoRouteReads ?? true,
+      maxReplicaLagMs: config?.maxReplicaLagMs ?? 1000,
+      hasReplicas: config?.hasReplicas ?? false,
+    };
   }
 
   /**
@@ -402,6 +422,115 @@ export class QueryRouter {
 
     // Default: Unknown statements go to primary (safe choice)
     return false;
+  }
+
+  /**
+   * Gets a routing decision with detailed information.
+   *
+   * Returns a structured decision object containing the target (primary/replica),
+   * the reason for the decision, and the detected statement type.
+   *
+   * @param sql - SQL query to analyze
+   * @param inTransaction - Whether currently in a transaction
+   * @returns RouteDecision object with target, reason, and statement type
+   *
+   * @example
+   * ```typescript
+   * const router = new QueryRouter({ hasReplicas: true, autoRouteReads: true });
+   * const decision = router.getRouteDecision('SELECT * FROM users', false);
+   * // { target: 'replica', reason: 'Read operation routed to replica', statementType: 'SELECT' }
+   * ```
+   */
+  getRouteDecision(sql: string, inTransaction: boolean): RouteDecision {
+    const statementType = this.parser.parseStatementType(sql);
+
+    // Rule 1: Auto-routing must be enabled
+    if (!this.config.autoRouteReads) {
+      return {
+        target: 'primary',
+        reason: 'Auto-routing disabled',
+        statementType,
+      };
+    }
+
+    // Rule 2: Replicas must be available
+    if (!this.config.hasReplicas) {
+      return {
+        target: 'primary',
+        reason: 'No replicas available',
+        statementType,
+      };
+    }
+
+    // Rule 3: Transactions always go to primary (consistency)
+    if (inTransaction) {
+      return {
+        target: 'primary',
+        reason: 'In transaction - routing to primary for consistency',
+        statementType,
+      };
+    }
+
+    // Rule 4: Respect PRIMARY hint
+    if (this.parser.hasPrimaryHint(sql)) {
+      return {
+        target: 'primary',
+        reason: 'PRIMARY hint detected',
+        statementType,
+      };
+    }
+
+    // Rule 5: Write operations always go to primary
+    if (this.parser.isWriteOperation(sql)) {
+      return {
+        target: 'primary',
+        reason: 'Write operation must go to primary',
+        statementType,
+      };
+    }
+
+    // Rule 6: Transaction control always goes to primary
+    if ([StatementType.BEGIN, StatementType.COMMIT, StatementType.ROLLBACK].includes(statementType)) {
+      return {
+        target: 'primary',
+        reason: 'Transaction control statement',
+        statementType,
+      };
+    }
+
+    // Rule 7: SELECT FOR UPDATE/SHARE goes to primary (acquires locks)
+    if (statementType === StatementType.SELECT) {
+      if (this.parser.hasForUpdate(sql)) {
+        return {
+          target: 'primary',
+          reason: 'SELECT FOR UPDATE requires primary',
+          statementType,
+        };
+      }
+      if (this.parser.hasForShare(sql)) {
+        return {
+          target: 'primary',
+          reason: 'SELECT FOR SHARE requires primary',
+          statementType,
+        };
+      }
+    }
+
+    // Rule 8: Read operations can go to replica
+    if (this.parser.isReadOperation(sql)) {
+      return {
+        target: 'replica',
+        reason: 'Read operation routed to replica',
+        statementType,
+      };
+    }
+
+    // Default: Unknown statements go to primary (safe choice)
+    return {
+      target: 'primary',
+      reason: 'Unknown statement type - defaulting to primary',
+      statementType,
+    };
   }
 
   /**
@@ -520,7 +649,7 @@ export class LoadBalancer {
   private selectRoundRobin(replicas: ReplicaInfo[]): ReplicaInfo {
     const index = this.roundRobinIndex % replicas.length;
     this.roundRobinIndex = (this.roundRobinIndex + 1) % replicas.length;
-    return replicas[index];
+    return replicas[index]!;
   }
 
   /**
@@ -531,7 +660,7 @@ export class LoadBalancer {
    */
   private selectRandom(replicas: ReplicaInfo[]): ReplicaInfo {
     const index = Math.floor(Math.random() * replicas.length);
-    return replicas[index];
+    return replicas[index]!;
   }
 
   /**
@@ -571,7 +700,7 @@ export class LoadBalancer {
     this.weightedIndex = (this.weightedIndex + 1) % this.weightedSequence.length;
 
     const replica = replicas.find(r => r.id === replicaId);
-    return replica || replicas[0]; // Fallback to first if not found
+    return replica || replicas[0]!; // Fallback to first if not found
   }
 
   /**

@@ -6,22 +6,28 @@
  */
 
 import type { Document } from '../types/index.js';
-import type { TransactionManager } from './transaction.js';
+import {
+  MongoDBCollection,
+  createMongoDBCollection,
+} from './collection.js';
+import {
+  TransactionManager,
+  MongoDBClient as TransactionClient,
+} from './transaction.js';
 
 // ============================================================================
 // Collection Service
 // ============================================================================
 
-/**
- * MongoDB Collection service class.
- * Provides CRUD operations, aggregation, change streams, and index management.
- */
-export class MongoDBCollection<T extends Document = Document> {
-  // Placeholder - actual implementation should be in ./collection.ts
-  constructor() {
-    throw new Error('MongoDBCollection not yet implemented');
-  }
-}
+// Re-export the complete MongoDBCollection implementation from collection.ts
+export {
+  MongoDBCollection,
+  createMongoDBCollection,
+  IndexInfo,
+  ChangeStreamWrapper,
+  BulkOperationBuilder,
+  BulkOperationFinder,
+} from './collection.js';
 
 // ============================================================================
 // Transaction Service
@@ -41,30 +47,84 @@ export {
 // Factory Functions
 // ============================================================================
 
+// Type for the client interface used by collection service
+interface CollectionServiceClient {
+  readonly logger: {
+    trace(message: string, context?: Record<string, unknown>): void;
+    debug(message: string, context?: Record<string, unknown>): void;
+    info(message: string, context?: Record<string, unknown>): void;
+    warn(message: string, context?: Record<string, unknown>): void;
+    error(message: string, context?: Record<string, unknown>): void;
+  };
+  readonly metrics: {
+    increment(name: string, value?: number, tags?: Record<string, string>): void;
+    gauge(name: string, value: number, tags?: Record<string, string>): void;
+    timing(name: string, durationMs: number, tags?: Record<string, string>): void;
+  };
+  readonly tracer: {
+    withSpan<T>(
+      name: string,
+      fn: (span: any) => T | Promise<T>,
+      attributes?: Record<string, unknown>
+    ): Promise<T>;
+  };
+  execute<T>(operation: () => Promise<T>): Promise<T>;
+}
+
 /**
  * Create a collection service instance.
  *
- * @param client - MongoDB client instance
+ * This factory creates a MongoDBCollection service wrapper that provides
+ * comprehensive CRUD operations, aggregation, indexing, change streams,
+ * and bulk operations with full observability and resilience support.
+ *
+ * @param collection - MongoDB driver Collection instance
+ * @param client - Client providing observability and resilience
  * @param dbName - Database name
  * @param collName - Collection name
  * @returns Collection service instance
+ *
+ * @example
+ * ```typescript
+ * const client = await connectMongoDB('mongodb://localhost:27017', 'mydb');
+ * const collection = client.getCollection('users').getDriverCollection();
+ *
+ * const userService = createCollectionService(collection, client, 'mydb', 'users');
+ * const user = await userService.findOne({ email: 'test@example.com' });
+ * ```
  */
 export function createCollectionService<T extends Document = Document>(
-  _client: unknown,
-  _dbName: string,
-  _collName: string
+  collection: unknown,
+  client: CollectionServiceClient,
+  dbName: string,
+  collName: string
 ): MongoDBCollection<T> {
-  throw new Error('createCollectionService not yet implemented');
+  return createMongoDBCollection<T>(collection, client, dbName, collName);
 }
 
 /**
  * Create a transaction manager instance.
  *
- * @param client - MongoDB client instance
+ * This factory creates a TransactionManager that provides session and
+ * transaction management with automatic retry logic for transient errors
+ * and unknown commit results.
+ *
+ * @param client - MongoDB client with session creation capabilities
  * @returns Transaction manager instance
+ *
+ * @example
+ * ```typescript
+ * const client = await connectMongoDB('mongodb://localhost:27017', 'mydb');
+ * const txnManager = createTransactionManager(client);
+ *
+ * await txnManager.withTransaction(async (session) => {
+ *   // Perform transactional operations
+ *   await collection.insertOne(doc, { session: session.driverSession });
+ * });
+ * ```
  */
-export function createTransactionManager(_client: unknown): TransactionManager {
-  throw new Error('createTransactionManager not yet implemented');
+export function createTransactionManager(client: TransactionClient): TransactionManager {
+  return new TransactionManager(client);
 }
 
 // ============================================================================

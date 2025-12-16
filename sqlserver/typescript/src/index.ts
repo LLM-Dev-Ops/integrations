@@ -229,6 +229,51 @@ export {
 } from './operations/transaction.js';
 
 // ============================================================================
+// Bulk Operations Exports
+// ============================================================================
+
+export {
+  BulkInsertResult,
+  FailedRow,
+  BulkInsertReport,
+  BulkInsertBuilder,
+  createBulkInsertBuilder,
+} from './operations/bulk.js';
+
+// ============================================================================
+// Stored Procedure Exports
+// ============================================================================
+
+export {
+  ProcedureCall,
+  ProcedureResult,
+  ProcedureOptions,
+  TvpBuilder,
+  ProcedureExecutor,
+  tvp,
+  isTvp,
+} from './operations/procedure.js';
+
+// ============================================================================
+// Retry Logic Exports
+// ============================================================================
+
+export {
+  RetryPolicy,
+  RetryContext,
+  DefaultRetryPolicy,
+  DeadlockRetryPolicy,
+  withRetry,
+  withRetrySimple,
+  isRetryableError as isRetryableErrorCheck,
+  isDeadlockError,
+  isLockTimeoutError,
+  calculateBackoff,
+  getRetryAfterMs as getRetryAfterMsFromError,
+  createRetryPolicy,
+} from './operations/retry.js';
+
+// ============================================================================
 // Observability Exports
 // ============================================================================
 
@@ -264,6 +309,18 @@ export {
 } from './observability/index.js';
 
 // ============================================================================
+// Resilience Exports
+// ============================================================================
+
+export {
+  CircuitBreaker,
+  CircuitBreakerConfig,
+  CircuitBreakerStats,
+  CircuitState,
+  createCircuitBreaker,
+} from './resilience/index.js';
+
+// ============================================================================
 // Client Factory
 // ============================================================================
 
@@ -271,6 +328,8 @@ import { SqlServerConfig, validateSqlServerConfig } from './config/index.js';
 import { ConnectionPool, createConnectionPool } from './pool/index.js';
 import { QueryExecutor, QueryTarget } from './operations/query.js';
 import { TransactionManager } from './operations/transaction.js';
+import { BulkInsertBuilder, createBulkInsertBuilder } from './operations/bulk.js';
+import { ProcedureExecutor } from './operations/procedure.js';
 import { Observability, createNoopObservability, createConsoleObservability, LogLevel } from './observability/index.js';
 
 /**
@@ -433,6 +492,39 @@ export class SqlServerClient {
   getPoolStats() {
     return this.pool.getStats();
   }
+
+  /**
+   * Creates a bulk insert builder for high-performance data insertion.
+   *
+   * @template T - Row type
+   * @returns Bulk insert builder instance
+   *
+   * @example
+   * ```typescript
+   * const rows = [
+   *   { name: 'Alice', email: 'alice@example.com', age: 30 },
+   *   { name: 'Bob', email: 'bob@example.com', age: 25 }
+   * ];
+   *
+   * const result = await client.bulkInsert()
+   *   .table('users')
+   *   .columns(['name', 'email', 'age'])
+   *   .batchSize(5000)
+   *   .tablock()
+   *   .execute(rows);
+   *
+   * console.log(`Inserted ${result.rowsInserted} rows in ${result.duration}ms`);
+   * ```
+   */
+  bulkInsert<T = Record<string, unknown>>(): BulkInsertBuilder<T> {
+    return createBulkInsertBuilder<T>(
+      async () => {
+        return this.pool.acquire('primary');
+      },
+      (conn) => this.pool.release(conn),
+      this.observability
+    );
+  }
 }
 
 /**
@@ -481,6 +573,17 @@ export class SqlServerClient {
  *   await tx.execute('INSERT INTO users (name) VALUES (@name)', { name: 'John' });
  *   await tx.execute('INSERT INTO audit (action) VALUES (@action)', { action: 'user_created' });
  * });
+ *
+ * // Bulk insert operations
+ * const rows = Array.from({ length: 10000 }, (_, i) => ({
+ *   name: `User ${i}`,
+ *   email: `user${i}@example.com`,
+ * }));
+ * const result = await client.bulkInsert()
+ *   .table('users')
+ *   .columns(['name', 'email'])
+ *   .batchSize(5000)
+ *   .execute(rows);
  *
  * await client.close();
  * ```

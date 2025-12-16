@@ -386,31 +386,31 @@ export class MongoDBDatabase {
 export class MongoDBClient {
   private readonly config: MongoDBConfig;
   private client: MongoClient | null = null;
-  private readonly observability: Observability;
+  private readonly _observability: Observability;
   private readonly resilience: ResilienceOrchestrator;
   private connected: boolean = false;
 
   constructor(config: MongoDBConfig, observability?: Observability) {
     this.config = config;
-    this.observability = observability ?? createNoopObservability();
+    this._observability = observability ?? createNoopObservability();
     this.resilience = new ResilienceOrchestrator(
       config.rateLimitConfig,
       config.circuitBreakerConfig,
       config.retryConfig,
       {
         onRetry: (attempt, error, delayMs) => {
-          this.observability.logger.warn('Retrying MongoDB operation', {
+          this._observability.logger.warn('Retrying MongoDB operation', {
             attempt,
             error: error.message,
             delayMs,
           });
-          this.observability.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
+          this._observability.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
             operation: 'retry',
             attempt: String(attempt),
           });
         },
         onRetriesExhausted: (error, attempts) => {
-          this.observability.logger.error('MongoDB retries exhausted', {
+          this._observability.logger.error('MongoDB retries exhausted', {
             error: error.message,
             attempts,
           });
@@ -423,21 +423,35 @@ export class MongoDBClient {
    * Gets the logger instance.
    */
   get logger(): Logger {
-    return this.observability.logger;
+    return this._observability.logger;
   }
 
   /**
    * Gets the metrics collector instance.
    */
   get metrics(): MetricsCollector {
-    return this.observability.metrics;
+    return this._observability.metrics;
   }
 
   /**
    * Gets the tracer instance.
    */
   get tracer(): Tracer {
-    return this.observability.tracer;
+    return this._observability.tracer;
+  }
+
+  /**
+   * Gets the observability container.
+   * Used by transaction service for session/transaction tracking.
+   */
+  get observability(): {
+    metrics: MetricsCollector;
+    logger: Logger;
+  } {
+    return {
+      metrics: this._observability.metrics,
+      logger: this._observability.logger,
+    };
   }
 
   /**
@@ -597,6 +611,31 @@ export class MongoDBClient {
    */
   resetResilience(): void {
     this.resilience.reset();
+  }
+
+  /**
+   * Starts a new MongoDB client session.
+   * Sessions are used for transactions and causal consistency.
+   *
+   * @param options - Session options (causalConsistency, defaultTransactionOptions)
+   * @returns MongoDB client session wrapped in a Promise
+   */
+  async startSession(options?: import('mongodb').ClientSessionOptions): Promise<import('mongodb').ClientSession> {
+    if (!this.client) {
+      throw new ConnectionFailedError('Not connected to MongoDB', new Error('Client not initialized'));
+    }
+
+    return this.client.startSession(options);
+  }
+
+  /**
+   * Executes an operation with resilience (rate limiting, circuit breaker, retry).
+   *
+   * @param operation - The operation to execute
+   * @returns The operation result
+   */
+  async execute<T>(operation: () => Promise<T>): Promise<T> {
+    return this.resilience.execute(operation);
   }
 
   /**

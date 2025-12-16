@@ -5,7 +5,7 @@
  * for transient errors and unknown commit results.
  */
 
-import type { ClientSession, ReadPreferenceLike, TransactionOptions as MongoTransactionOptions } from 'mongodb';
+import type { ClientSession, ReadPreferenceLike } from 'mongodb';
 import { ReadConcernLevel, WriteConcernOptions } from '../config/index.js';
 import {
   TransactionError,
@@ -84,7 +84,8 @@ export class SessionWrapper {
    * Gets the session ID.
    */
   get id(): string {
-    return this.session.id.toString();
+    // ServerSessionId is a BSON document, convert to string representation
+    return this.session.id ? JSON.stringify(this.session.id) : 'no-session-id';
   }
 
   /**
@@ -254,7 +255,7 @@ export class SessionWrapper {
             return result;
           } catch (commitError) {
             // Check if this is an UnknownTransactionCommitResult error
-            const errorMessage =
+            const _errorMessage =
               commitError instanceof Error ? commitError.message : String(commitError);
             const errorLabels = (commitError as any)?.errorLabels || [];
 

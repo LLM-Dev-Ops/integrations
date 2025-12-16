@@ -428,7 +428,7 @@ export class QueryExecutor {
           const result: QueryResult<T> = {
             rows: mssqlResult.recordset as T[] || [],
             rowCount: mssqlResult.rowsAffected.reduce((a, b) => a + b, 0),
-            fields: this.mapColumns(mssqlResult.recordset?.columns || {}),
+            fields: this.mapColumns((mssqlResult.recordset?.columns as unknown as Record<string, mssql.IColumnMetadata>) || {}),
             command: this.detectCommand(query),
             duration,
           };
@@ -670,7 +670,7 @@ export class QueryExecutor {
 
     // Set timeout if specified
     if (timeout) {
-      request.timeout = timeout;
+      (request as unknown as { timeout: number }).timeout = timeout;
     }
 
     // Add parameters
@@ -695,16 +695,17 @@ export class QueryExecutor {
     return Object.entries(columns).map(([name, col]) => ({
       name,
       dataTypeName: this.typeIdToName(col.type),
-      length: col.length,
-      precision: col.precision,
-      scale: col.scale,
-      nullable: col.nullable ?? true,
+      length: typeof col.length === 'number' ? col.length : undefined,
+      precision: typeof col.precision === 'number' ? col.precision : undefined,
+      scale: typeof col.scale === 'number' ? col.scale : undefined,
+      nullable: typeof col.nullable === 'boolean' ? col.nullable : true,
     }));
   }
 
-  private typeIdToName(type: (() => mssql.ISqlType) | mssql.ISqlType): string {
+  private typeIdToName(type: (() => mssql.ISqlType) | mssql.ISqlType | undefined): string {
+    if (!type) return 'unknown';
     const typeObj = typeof type === 'function' ? type() : type;
-    return typeObj.type || 'unknown';
+    return String(typeObj.type || 'unknown');
   }
 
   private detectCommand(query: string): string {

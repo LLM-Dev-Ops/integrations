@@ -45,6 +45,13 @@ export type {
   Query,
   ConnectionState,
   Connection,
+  PreparedStatement,
+  QueryOptions,
+  StreamOptions,
+  RowStream,
+  TableStats,
+  ServerStatus,
+  ProcessInfo,
 } from './types/index.js';
 
 export {
@@ -166,6 +173,7 @@ export {
 export type {
   RoutingConfig,
   ReplicaInfo,
+  RouteDecision,
 } from './routing/index.js';
 
 // Simulation
