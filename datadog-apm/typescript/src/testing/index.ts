@@ -37,6 +37,17 @@ export {
   assertSpanParentChild,
   getSpanCount,
   getMetricCount,
+  // LLM span assertions
+  assertLLMSpanCreated,
+  assertLLMTokensRecorded,
+  // Agent span assertions
+  assertAgentSpanCreated,
+  assertAgentStepTracked,
+  assertToolCallRecorded,
+  // Log correlation assertions
+  assertLogCorrelated,
+  // Error tracking assertions
+  assertErrorTracked,
 } from './assertions.js';
 
 // Fixture exports

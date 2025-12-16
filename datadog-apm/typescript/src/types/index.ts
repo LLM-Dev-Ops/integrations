@@ -5,15 +5,18 @@
  */
 
 // Common types
-export type { Tags, TagValue, Carrier, LogContext } from './common';
+export type { Tags, TagValue, Carrier, LogContext } from './common.js';
 
 // Span types
-export { SpanType } from './span';
-export type { SpanContext, SpanOptions } from './span';
+export { SpanType } from './span.js';
+export type { SpanContext, SpanOptions } from './span.js';
+
+// Re-export Span interface from tracing module for convenience
+export type { Span } from '../tracing/interface.js';
 
 // Metric types
-export { MetricType } from './metric';
-export type { CapturedMetric } from './metric';
+export { MetricType } from './metric.js';
+export type { CapturedMetric } from './metric.js';
 
 // Configuration types
-export type { DatadogAPMConfig, RedactionRule, Logger } from './config';
+export type { DatadogAPMConfig, RedactionRule, Logger } from './config.js';

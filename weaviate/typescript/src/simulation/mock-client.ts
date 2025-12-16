@@ -7,10 +7,9 @@
  */
 
 import type { UUID, Properties } from '../types/property.js';
-import type { Vector } from '../types/vector.js';
 import type { WeaviateObject, CreateOptions, GetOptions, UpdateOptions, DeleteOptions } from '../types/object.js';
 import type { Schema } from '../types/schema.js';
-import type { SearchResult, SearchHit, NearVectorQuery, NearObjectQuery, HybridQuery } from '../types/search.js';
+import type { SearchResult, SearchHit, NearVectorQuery, HybridQuery } from '../types/search.js';
 import type { BatchObject, BatchResponse, BatchDeleteResponse } from '../types/batch.js';
 import type { WhereFilter } from '../types/filter.js';
 import { createUUID } from '../types/property.js';
@@ -376,6 +375,12 @@ export class MockWeaviateClient {
   /**
    * Hybrid search (combined vector + BM25)
    *
+   * Simulates hybrid search by combining BM25 text matching and vector similarity.
+   * The alpha parameter controls the balance:
+   * - alpha = 0.0: Pure BM25 (keyword search)
+   * - alpha = 1.0: Pure vector search
+   * - alpha = 0.5: Equal weight between both
+   *
    * @param className - The class name
    * @param query - Hybrid query
    * @returns Search results
@@ -387,22 +392,121 @@ export class MockWeaviateClient {
     await this.maybeDelay();
     this.maybeThrowError('hybrid', className);
 
-    // For mock, we'll do a simple vector search if vector is provided
-    // Real implementation would combine BM25 and vector search
-    if (query.vector) {
-      const vectorQuery: NearVectorQuery = {
-        className,
-        vector: query.vector,
-        limit: query.limit,
-        offset: query.offset,
-        filter: query.filter,
-        properties: query.properties,
-        includeVector: query.includeVector,
-      };
-      return this.nearVector(className, vectorQuery);
+    // Get all objects from class
+    let objects = this.store.getAllByClass(className);
+
+    // Apply filter if provided
+    if (query.filter) {
+      objects = objects.filter((obj) => matchesFilter(obj, query.filter!));
     }
 
-    // Without vector, return empty results
+    const alpha = query.alpha;
+    const searchQuery = query.query.toLowerCase();
+    const searchWords = searchQuery.split(/\s+/).filter(w => w.length > 0);
+
+    // Compute BM25-like scores (text matching)
+    const bm25Scores: Map<string, number> = new Map();
+    if (alpha < 1.0 && searchWords.length > 0) {
+      for (const obj of objects) {
+        let score = 0;
+        const searchableProps = query.searchProperties || Object.keys(obj.properties);
+
+        for (const propName of searchableProps) {
+          const propValue = obj.properties[propName];
+          if (typeof propValue === 'string') {
+            const propLower = propValue.toLowerCase();
+            // Simple BM25-like scoring: count word matches
+            for (const word of searchWords) {
+              if (propLower.includes(word)) {
+                score += 1;
+                // Bonus for exact word match
+                if (propLower.split(/\s+/).includes(word)) {
+                  score += 0.5;
+                }
+              }
+            }
+          }
+        }
+        bm25Scores.set(obj.id, score);
+      }
+    }
+
+    // Compute vector scores
+    const vectorScores: Map<string, number> = new Map();
+    if (alpha > 0.0 && query.vector) {
+      const objectsWithVectors = objects.filter((obj) => obj.vector !== undefined);
+      for (const obj of objectsWithVectors) {
+        const distance = computeDistance(
+          query.vector,
+          obj.vector!,
+          this.config.distanceMetric
+        );
+        // Convert distance to a score (higher is better)
+        const vectorScore = Math.max(0, 1 - distance);
+        vectorScores.set(obj.id, vectorScore);
+      }
+    }
+
+    // Combine scores based on alpha
+    const combinedScores: Array<{ id: string; score: number; obj: WeaviateObject }> = [];
+
+    for (const obj of objects) {
+      const bm25Score = bm25Scores.get(obj.id) || 0;
+      const vectorScore = vectorScores.get(obj.id) || 0;
+
+      // Skip objects with no scores when searching
+      const hasBm25 = bm25Score > 0;
+      const hasVector = vectorScore > 0;
+
+      // For pure BM25 (alpha=0), only include objects with text matches
+      if (alpha === 0 && !hasBm25) continue;
+      // For pure vector (alpha=1), only include objects with vectors
+      if (alpha === 1.0 && !hasVector) continue;
+      // For hybrid, include if either matches
+      if (alpha > 0 && alpha < 1.0 && !hasBm25 && !hasVector) continue;
+
+      // Normalize and combine scores
+      const combinedScore = (1 - alpha) * bm25Score + alpha * vectorScore;
+
+      combinedScores.push({ id: obj.id, score: combinedScore, obj });
+    }
+
+    // Sort by combined score (higher is better)
+    combinedScores.sort((a, b) => b.score - a.score);
+
+    // Apply offset and limit
+    const offset = query.offset ?? 0;
+    const limit = query.limit;
+    const paginatedResults = combinedScores.slice(offset, offset + limit);
+
+    // Build search hits
+    const hits: SearchHit[] = paginatedResults.map(({ obj, score }) => {
+      const hit: SearchHit = {
+        id: obj.id,
+        className: obj.className,
+        properties: obj.properties,
+        score,
+        explainScore: `BM25: ${bm25Scores.get(obj.id)?.toFixed(3) || '0'}, Vector: ${vectorScores.get(obj.id)?.toFixed(3) || '0'}, Alpha: ${alpha}`,
+      };
+
+      if (query.includeVector && obj.vector) {
+        hit.vector = obj.vector;
+      }
+
+      // Include certainty/distance if vector was used
+      if (query.vector && obj.vector) {
+        const distance = computeDistance(
+          query.vector,
+          obj.vector,
+          this.config.distanceMetric
+        );
+        hit.distance = distance;
+        hit.certainty = distanceToCertainty(distance, this.config.distanceMetric);
+      }
+
+      return hit;
+    });
+
     if (this.config.recordOperations) {
       this.recorder.record({
         type: 'hybrid',
@@ -411,11 +515,125 @@ export class MockWeaviateClient {
         query: query.query,
         alpha: query.alpha,
         limit: query.limit,
-        resultsCount: 0,
+        resultsCount: hits.length,
       });
     }
 
-    return { objects: [] };
+    return {
+      objects: hits,
+      totalCount: combinedScores.length,
+    };
+  }
+
+  /**
+   * BM25 keyword search
+   *
+   * Simulates BM25 keyword search by matching query words against text properties.
+   *
+   * @param className - The class name
+   * @param query - BM25 query parameters
+   * @returns Search results
+   */
+  async bm25(
+    className: string,
+    query: { query: string; properties?: string[]; limit: number; offset?: number; filter?: WhereFilter; returnProperties?: string[]; includeVector?: boolean }
+  ): Promise<SearchResult> {
+    await this.maybeDelay();
+    this.maybeThrowError('bm25', className);
+
+    // Get all objects from class
+    let objects = this.store.getAllByClass(className);
+
+    // Apply filter if provided
+    if (query.filter) {
+      objects = objects.filter((obj) => matchesFilter(obj, query.filter!));
+    }
+
+    const searchQuery = query.query.toLowerCase();
+    const searchWords = searchQuery.split(/\s+/).filter(w => w.length > 0);
+
+    if (searchWords.length === 0) {
+      return { objects: [], totalCount: 0 };
+    }
+
+    // Compute BM25-like scores
+    const scoredObjects: Array<{ obj: WeaviateObject; score: number }> = [];
+
+    for (const obj of objects) {
+      let score = 0;
+      const searchableProps = query.properties || Object.keys(obj.properties);
+
+      for (const propName of searchableProps) {
+        const propValue = obj.properties[propName];
+        if (typeof propValue === 'string') {
+          const propLower = propValue.toLowerCase();
+          for (const word of searchWords) {
+            if (propLower.includes(word)) {
+              score += 1;
+              // Bonus for exact word match
+              const words = propLower.split(/\s+/);
+              if (words.includes(word)) {
+                score += 0.5;
+              }
+              // Bonus for title property
+              if (propName.toLowerCase() === 'title' || propName.toLowerCase() === 'name') {
+                score += 0.25;
+              }
+            }
+          }
+        }
+      }
+
+      if (score > 0) {
+        scoredObjects.push({ obj, score });
+      }
+    }
+
+    // Sort by score (higher is better)
+    scoredObjects.sort((a, b) => b.score - a.score);
+
+    // Apply offset and limit
+    const offset = query.offset ?? 0;
+    const limit = query.limit;
+    const paginatedResults = scoredObjects.slice(offset, offset + limit);
+
+    // Build search hits
+    const hits: SearchHit[] = paginatedResults.map(({ obj, score }) => {
+      const hit: SearchHit = {
+        id: obj.id,
+        className: obj.className,
+        properties: query.returnProperties
+          ? Object.fromEntries(
+              Object.entries(obj.properties).filter(([key]) =>
+                query.returnProperties!.includes(key)
+              )
+            )
+          : obj.properties,
+        score,
+      };
+
+      if (query.includeVector && obj.vector) {
+        hit.vector = obj.vector;
+      }
+
+      return hit;
+    });
+
+    if (this.config.recordOperations) {
+      this.recorder.record({
+        type: 'bm25',
+        timestamp: Date.now(),
+        className,
+        query: query.query,
+        limit: query.limit,
+        resultsCount: hits.length,
+      });
+    }
+
+    return {
+      objects: hits,
+      totalCount: scoredObjects.length,
+    };
   }
 
   /**

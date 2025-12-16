@@ -81,14 +81,16 @@ export {
 } from './serialization.js';
 
 // Export validation functions
-export type { ValidationError, FilterValidationResult } from './validation.js';
+export type { ValidationError, FilterValidationResult, SchemaResolver } from './validation.js';
 
 export {
+  MAX_FILTER_DEPTH,
   validateFilter,
   validateOperand,
   validatePropertyPath,
   isPropertyFilterable,
   getValidationSummary,
+  calculateFilterDepth as calculateFilterValidationDepth,
 } from './validation.js';
 
 // Export optimization functions

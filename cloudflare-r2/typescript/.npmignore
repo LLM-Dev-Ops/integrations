@@ -1,0 +1,37 @@
+# Source files
+src/
+
+# Configuration
+tsconfig.json
+jest.config.js
+.eslintrc.cjs
+.prettierrc
+
+# Testing
+**/*.test.ts
+**/__tests__/
+coverage/
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (keep README.md)
+DELIVERY_CHECKLIST.md
+XML_IMPLEMENTATION_SUMMARY.md
+FACTORY_CHANGES.md
+FACTORY_USAGE.md
+
+# Build artifacts
+*.tsbuildinfo
+.cache/
+
+# Environment
+.env
+.env.*
+
+# Git
+.git/
+.gitignore

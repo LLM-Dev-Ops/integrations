@@ -12,6 +12,12 @@ import type { ClassDefinition, PropertyDefinition } from '../types/schema.js';
 import { isOperatorCompatible } from './operators.js';
 
 /**
+ * Maximum allowed filter depth per SPARC specification
+ * Weaviate limits filter nesting to prevent complex query execution
+ */
+export const MAX_FILTER_DEPTH = 10;
+
+/**
  * Validation error
  */
 export interface ValidationError {
@@ -33,7 +39,9 @@ export interface ValidationError {
     | 'property_not_filterable'
     | 'incompatible_operator'
     | 'invalid_value'
-    | 'invalid_path';
+    | 'invalid_path'
+    | 'max_depth_exceeded'
+    | 'invalid_cross_reference';
 }
 
 /**
@@ -52,19 +60,40 @@ export interface FilterValidationResult {
 }
 
 /**
+ * Schema cache interface for cross-reference validation
+ */
+export interface SchemaResolver {
+  /**
+   * Get class definition by name
+   */
+  getClass(className: string): ClassDefinition | undefined;
+}
+
+/**
  * Validate a filter against a schema
  *
  * @param filter - The filter to validate
  * @param schema - The class schema to validate against
+ * @param schemaResolver - Optional resolver for cross-reference validation
  * @returns Validation result
  */
 export function validateFilter(
   filter: WhereFilter,
-  schema: ClassDefinition
+  schema: ClassDefinition,
+  schemaResolver?: SchemaResolver
 ): FilterValidationResult {
   const errors: ValidationError[] = [];
 
-  collectValidationErrors(filter, schema, errors);
+  // Validate filter depth
+  const depth = calculateFilterDepth(filter);
+  if (depth > MAX_FILTER_DEPTH) {
+    errors.push({
+      type: 'max_depth_exceeded',
+      message: `Filter depth (${depth}) exceeds maximum allowed (${MAX_FILTER_DEPTH})`,
+    });
+  }
+
+  collectValidationErrors(filter, schema, errors, schemaResolver);
 
   return {
     valid: errors.length === 0,
@@ -73,33 +102,59 @@ export function validateFilter(
 }
 
 /**
+ * Calculate the depth of a filter tree
+ *
+ * @param filter - The filter to measure
+ * @returns Maximum depth of the filter tree
+ */
+export function calculateFilterDepth(filter: WhereFilter): number {
+  if (isOperandFilter(filter)) {
+    return 1;
+  }
+
+  if (isAndFilter(filter) || filter.operator === 'Or') {
+    if (!filter.operands || filter.operands.length === 0) {
+      return 1;
+    }
+    const maxChildDepth = Math.max(
+      ...filter.operands.map((op) => calculateFilterDepth(op))
+    );
+    return 1 + maxChildDepth;
+  }
+
+  return 1;
+}
+
+/**
  * Recursively collect validation errors from a filter
  *
  * @param filter - The filter to validate
  * @param schema - The class schema
  * @param errors - Array to collect errors
+ * @param schemaResolver - Optional resolver for cross-reference validation
  */
 function collectValidationErrors(
   filter: WhereFilter,
   schema: ClassDefinition,
-  errors: ValidationError[]
+  errors: ValidationError[],
+  schemaResolver?: SchemaResolver
 ): void {
   if (isOperandFilter(filter)) {
-    const operandErrors = validateOperand(filter.operand, schema);
+    const operandErrors = validateOperand(filter.operand, schema, schemaResolver);
     errors.push(...operandErrors);
     return;
   }
 
   if (isAndFilter(filter)) {
     for (const operand of filter.operands) {
-      collectValidationErrors(operand, schema, errors);
+      collectValidationErrors(operand, schema, errors, schemaResolver);
     }
     return;
   }
 
   // OrFilter
   for (const operand of filter.operands) {
-    collectValidationErrors(operand, schema, errors);
+    collectValidationErrors(operand, schema, errors, schemaResolver);
   }
 }
 
@@ -108,23 +163,25 @@ function collectValidationErrors(
  *
  * @param operand - The operand to validate
  * @param schema - The class schema
+ * @param schemaResolver - Optional resolver for cross-reference validation
  * @returns Array of validation errors
  */
 export function validateOperand(
   operand: FilterOperand,
-  schema: ClassDefinition
+  schema: ClassDefinition,
+  schemaResolver?: SchemaResolver
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Validate property path
-  const pathErrors = validatePropertyPath(operand.path, schema);
+  const pathErrors = validatePropertyPath(operand.path, schema, schemaResolver);
   if (pathErrors.length > 0) {
     errors.push(...pathErrors);
     return errors; // Can't validate further if path is invalid
   }
 
-  // Get the property definition
-  const property = findProperty(operand.path, schema);
+  // Get the property definition (may be in referenced class for multi-level paths)
+  const property = findPropertyWithCrossRef(operand.path, schema, schemaResolver);
   if (!property) {
     // This shouldn't happen if validatePropertyPath passed, but check anyway
     errors.push({
@@ -145,8 +202,8 @@ export function validateOperand(
   }
 
   // Check operator compatibility
-  const dataType = property.dataType[0]; // Use first data type
-  if (!isOperatorCompatible(operand.operator, dataType)) {
+  const dataType = property.dataType[0] ?? ''; // Use first data type
+  if (dataType && !isOperatorCompatible(operand.operator, dataType)) {
     errors.push({
       type: 'incompatible_operator',
       message: `Operator ${operand.operator} is not compatible with type ${dataType}`,
@@ -166,11 +223,13 @@ export function validateOperand(
  *
  * @param path - Property path to validate
  * @param schema - The class schema
+ * @param schemaResolver - Optional resolver for cross-reference validation
  * @returns Array of validation errors
  */
 export function validatePropertyPath(
   path: string[],
-  schema: ClassDefinition
+  schema: ClassDefinition,
+  schemaResolver?: SchemaResolver
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -183,38 +242,137 @@ export function validatePropertyPath(
     return errors;
   }
 
-  // For now, we only support single-level paths
-  // Multi-level paths (cross-references) require additional schema lookups
-  if (path.length > 1) {
-    // TODO: Implement cross-reference path validation
-    // This would require fetching the referenced class schema
-    return errors; // Skip validation for now
+  // Validate single-level paths
+  if (path.length === 1) {
+    const propertyName = path[0];
+    const property = schema.properties.find((p) => p.name === propertyName);
+
+    if (!property) {
+      errors.push({
+        type: 'property_not_found',
+        message: `Property not found in schema: ${propertyName}`,
+        path,
+      });
+    }
+    return errors;
   }
 
-  const propertyName = path[0];
-  const property = schema.properties.find((p) => p.name === propertyName);
+  // Validate multi-level paths (cross-references)
+  // Path format: [referenceProperty, referencedClass, targetProperty]
+  // e.g., ["author", "Author", "name"] to filter Article.author -> Author.name
+  const crossRefErrors = validateCrossReferencePath(path, schema, schemaResolver);
+  errors.push(...crossRefErrors);
 
-  if (!property) {
+  return errors;
+}
+
+/**
+ * Validate a cross-reference property path
+ *
+ * @param path - Property path to validate (e.g., ["author", "Author", "name"])
+ * @param schema - The source class schema
+ * @param schemaResolver - Optional resolver for referenced class schema
+ * @returns Array of validation errors
+ */
+function validateCrossReferencePath(
+  path: string[],
+  schema: ClassDefinition,
+  schemaResolver?: SchemaResolver
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (path.length < 2) {
+    return errors;
+  }
+
+  // First segment is the reference property on the source class
+  const referencePropertyName = path[0];
+  const referenceProperty = schema.properties.find(
+    (p) => p.name === referencePropertyName
+  );
+
+  if (!referenceProperty) {
     errors.push({
       type: 'property_not_found',
-      message: `Property not found in schema: ${propertyName}`,
+      message: `Reference property not found in schema: ${referencePropertyName}`,
       path,
     });
+    return errors;
+  }
+
+  // Check that the property is a reference type (dataType is a class name)
+  const refDataType = referenceProperty.dataType[0] ?? '';
+  const firstChar = refDataType.charAt(0);
+  const isReference =
+    refDataType.length > 0 &&
+    firstChar === firstChar.toUpperCase() &&
+    !refDataType.includes('[');
+
+  if (!isReference) {
+    errors.push({
+      type: 'invalid_cross_reference',
+      message: `Property '${referencePropertyName}' is not a cross-reference type`,
+      path,
+    });
+    return errors;
+  }
+
+  // Second segment should be the referenced class name
+  const referencedClassName = path[1];
+
+  // Verify the class name matches the reference type
+  if (refDataType !== referencedClassName) {
+    errors.push({
+      type: 'invalid_cross_reference',
+      message: `Reference class mismatch: property references '${refDataType}' but path specifies '${referencedClassName}'`,
+      path,
+    });
+    return errors;
+  }
+
+  // If we have a schema resolver, validate the remaining path in the referenced class
+  if (schemaResolver && path.length > 2) {
+    const referencedSchema = schemaResolver.getClass(referencedClassName);
+
+    if (!referencedSchema) {
+      errors.push({
+        type: 'invalid_cross_reference',
+        message: `Referenced class '${referencedClassName}' not found in schema`,
+        path,
+      });
+      return errors;
+    }
+
+    // Validate the remaining path segments in the referenced class
+    const remainingPath = path.slice(2);
+    const remainingErrors = validatePropertyPath(
+      remainingPath,
+      referencedSchema,
+      schemaResolver
+    );
+
+    // Adjust error paths to include full path
+    for (const error of remainingErrors) {
+      error.path = path;
+    }
+    errors.push(...remainingErrors);
   }
 
   return errors;
 }
 
 /**
- * Find a property definition by path
+ * Find a property definition by path with cross-reference support
  *
  * @param path - Property path
  * @param schema - The class schema
+ * @param schemaResolver - Optional resolver for cross-reference validation
  * @returns Property definition or undefined
  */
-function findProperty(
+function findPropertyWithCrossRef(
   path: string[],
-  schema: ClassDefinition
+  schema: ClassDefinition,
+  schemaResolver?: SchemaResolver
 ): PropertyDefinition | undefined {
   if (path.length === 0) {
     return undefined;
@@ -225,9 +383,20 @@ function findProperty(
     return schema.properties.find((p) => p.name === path[0]);
   }
 
-  // For multi-level paths, would need to follow references
-  // This is more complex and requires schema lookup for referenced classes
-  // For now, return the first property
+  // For multi-level paths (cross-references), follow the reference chain
+  // Path format: [referenceProperty, referencedClass, targetProperty, ...]
+  if (path.length >= 3 && schemaResolver) {
+    const referencedClassName = path[1] ?? '';
+    const referencedSchema = schemaResolver.getClass(referencedClassName);
+
+    if (referencedSchema) {
+      // Find the target property in the referenced class
+      const remainingPath = path.slice(2);
+      return findPropertyWithCrossRef(remainingPath, referencedSchema, schemaResolver);
+    }
+  }
+
+  // Fallback: return the first property in the path
   return schema.properties.find((p) => p.name === path[0]);
 }
 
@@ -265,7 +434,8 @@ function validateValue(
 ): ValidationError[] {
   const errors: ValidationError[] = [];
   const value = operand.value;
-  const dataType = property.dataType[0].toLowerCase();
+  const firstDataType = property.dataType[0];
+  const dataType = firstDataType ? firstDataType.toLowerCase() : '';
 
   // Null is always valid for IsNull operator
   if (value === null) {

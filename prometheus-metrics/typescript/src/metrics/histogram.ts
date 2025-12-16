@@ -121,17 +121,19 @@ export class Histogram implements Metric {
    * Collect histogram data for serialization.
    */
   collect(): HistogramValue {
-    // Build bucket array with le (less than or equal) labels
-    const buckets = this.buckets.map((le, i) => ({
-      le,
-      count: this.bucketCounts[i],
-    }));
+    // Build bucket Map with le (less than or equal) as key
+    const buckets = new Map<number, number>();
+    for (let i = 0; i < this.buckets.length; i++) {
+      const le = this.buckets[i];
+      const count = this.bucketCounts[i];
+      if (le !== undefined && count !== undefined) {
+        buckets.set(le, count);
+      }
+    }
 
     return {
-      name: this.name,
-      help: this.help,
-      type: this.type,
       labels: this.labels,
+      value: 0, // Required by MetricValue interface, not used for histograms
       buckets,
       sum: this.sum,
       count: this.count,

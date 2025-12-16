@@ -234,3 +234,236 @@ export function getMetricCount(
 ): number {
   return client.getMetrics(filter).length;
 }
+
+// ==================== LLM Span Assertions ====================
+
+/**
+ * Assert that an LLM span was created with expected attributes
+ */
+export function assertLLMSpanCreated(
+  client: MockDatadogAPMClient,
+  name: string,
+  options?: {
+    provider?: string;
+    model?: string;
+    requestType?: string;
+  }
+): CapturedSpan {
+  const span = assertSpanCreated(client, name);
+
+  // Verify it's an LLM span
+  if (!span.tags['llm.provider']) {
+    throw new AssertionError(`Span "${name}" is not an LLM span (missing llm.provider tag)`);
+  }
+
+  // Check optional attributes
+  if (options?.provider && span.tags['llm.provider'] !== options.provider) {
+    throw new AssertionError(
+      `LLM span "${name}" provider expected "${options.provider}", got "${span.tags['llm.provider']}"`
+    );
+  }
+
+  if (options?.model && span.tags['llm.model'] !== options.model) {
+    throw new AssertionError(
+      `LLM span "${name}" model expected "${options.model}", got "${span.tags['llm.model']}"`
+    );
+  }
+
+  if (options?.requestType && span.tags['llm.request_type'] !== options.requestType) {
+    throw new AssertionError(
+      `LLM span "${name}" request type expected "${options.requestType}", got "${span.tags['llm.request_type']}"`
+    );
+  }
+
+  return span;
+}
+
+/**
+ * Assert that LLM token counts were recorded
+ */
+export function assertLLMTokensRecorded(
+  client: MockDatadogAPMClient,
+  name: string,
+  inputTokens: number,
+  outputTokens: number
+): CapturedSpan {
+  const span = assertLLMSpanCreated(client, name);
+
+  const actualInputTokens = span.tags['llm.input_tokens'];
+  const actualOutputTokens = span.tags['llm.output_tokens'];
+
+  if (actualInputTokens !== inputTokens) {
+    throw new AssertionError(
+      `LLM span "${name}" input tokens expected ${inputTokens}, got ${actualInputTokens}`
+    );
+  }
+
+  if (actualOutputTokens !== outputTokens) {
+    throw new AssertionError(
+      `LLM span "${name}" output tokens expected ${outputTokens}, got ${actualOutputTokens}`
+    );
+  }
+
+  // Verify total tokens are calculated correctly
+  const expectedTotal = inputTokens + outputTokens;
+  const actualTotal = span.tags['llm.total_tokens'];
+
+  if (actualTotal !== expectedTotal) {
+    throw new AssertionError(
+      `LLM span "${name}" total tokens expected ${expectedTotal}, got ${actualTotal}`
+    );
+  }
+
+  return span;
+}
+
+// ==================== Agent Span Assertions ====================
+
+/**
+ * Assert that an Agent span was created with expected attributes
+ */
+export function assertAgentSpanCreated(
+  client: MockDatadogAPMClient,
+  name: string,
+  options?: {
+    agentName?: string;
+    agentType?: string;
+  }
+): CapturedSpan {
+  const span = assertSpanCreated(client, name);
+
+  // Verify it's an Agent span
+  if (!span.tags['agent.name']) {
+    throw new AssertionError(`Span "${name}" is not an Agent span (missing agent.name tag)`);
+  }
+
+  // Check optional attributes
+  if (options?.agentName && span.tags['agent.name'] !== options.agentName) {
+    throw new AssertionError(
+      `Agent span "${name}" agent name expected "${options.agentName}", got "${span.tags['agent.name']}"`
+    );
+  }
+
+  if (options?.agentType && span.tags['agent.type'] !== options.agentType) {
+    throw new AssertionError(
+      `Agent span "${name}" agent type expected "${options.agentType}", got "${span.tags['agent.type']}"`
+    );
+  }
+
+  return span;
+}
+
+/**
+ * Assert that an agent step was tracked
+ */
+export function assertAgentStepTracked(
+  client: MockDatadogAPMClient,
+  parentSpan: CapturedSpan,
+  stepNumber: number
+): CapturedSpan {
+  // Find a span with the parent's spanId as its parentId and matching step number
+  const spans = client.getSpans();
+  const stepSpan = spans.find(
+    (s) => s.parentId === parentSpan.spanId && s.tags['agent.step'] === stepNumber
+  );
+
+  if (!stepSpan) {
+    throw new AssertionError(
+      `Agent step ${stepNumber} not found for parent span "${parentSpan.name}"`
+    );
+  }
+
+  return stepSpan;
+}
+
+/**
+ * Assert that a tool call was recorded
+ */
+export function assertToolCallRecorded(
+  client: MockDatadogAPMClient,
+  agentName: string,
+  toolName: string,
+  success: boolean
+): CapturedMetric {
+  const metrics = client.getMetrics({ name: 'agent.tool_calls', type: 'counter' });
+
+  const toolCallMetric = metrics.find(
+    (m) =>
+      m.tags['agent'] === agentName &&
+      m.tags['tool'] === toolName &&
+      m.tags['status'] === (success ? 'success' : 'error')
+  );
+
+  if (!toolCallMetric) {
+    throw new AssertionError(
+      `Tool call metric for agent "${agentName}", tool "${toolName}", status "${success ? 'success' : 'error'}" was not recorded`
+    );
+  }
+
+  return toolCallMetric;
+}
+
+// ==================== Log Correlation Assertions ====================
+
+/**
+ * Assert that log context was captured with correct correlation IDs
+ */
+export function assertLogCorrelated(
+  client: MockDatadogAPMClient,
+  traceId: string,
+  spanId: string
+): void {
+  const logContext = client.getLogContext();
+
+  if (!logContext) {
+    throw new AssertionError('No log context available');
+  }
+
+  const dd = logContext.dd as any;
+
+  if (!dd) {
+    throw new AssertionError('Log context missing "dd" field');
+  }
+
+  if (dd.trace_id !== traceId) {
+    throw new AssertionError(
+      `Log context trace_id expected "${traceId}", got "${dd.trace_id}"`
+    );
+  }
+
+  if (dd.span_id !== spanId) {
+    throw new AssertionError(`Log context span_id expected "${spanId}", got "${dd.span_id}"`);
+  }
+}
+
+// ==================== Error Tracking Assertions ====================
+
+/**
+ * Assert that an error was tracked on a span
+ */
+export function assertErrorTracked(
+  client: MockDatadogAPMClient,
+  errorType?: string,
+  errorMessage?: string
+): CapturedSpan {
+  const spans = client.getSpans();
+  const errorSpan = spans.find((s) => s.error !== null || s.tags['error'] === true);
+
+  if (!errorSpan) {
+    throw new AssertionError('No error span found');
+  }
+
+  if (errorType && errorSpan.tags['error.type'] !== errorType) {
+    throw new AssertionError(
+      `Error type expected "${errorType}", got "${errorSpan.tags['error.type']}"`
+    );
+  }
+
+  if (errorMessage && errorSpan.tags['error.message'] !== errorMessage) {
+    throw new AssertionError(
+      `Error message expected "${errorMessage}", got "${errorSpan.tags['error.message']}"`
+    );
+  }
+
+  return errorSpan;
+}

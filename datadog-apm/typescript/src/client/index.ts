@@ -5,10 +5,10 @@
  */
 
 // Client interface
-export type { DatadogAPMClient } from './interface';
+export type { DatadogAPMClient } from './interface.js';
 
 // Client implementation
-export { DatadogAPMClientImpl } from './client';
+export { DatadogAPMClientImpl } from './client.js';
 
 // Client factory
-export { DatadogAPMClientFactory } from './factory';
+export { DatadogAPMClientFactory } from './factory.js';

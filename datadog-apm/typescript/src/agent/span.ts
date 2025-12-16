@@ -166,7 +166,7 @@ export class AgentSpanImpl implements AgentSpan {
     return this._tags;
   }
 
-  get error(): boolean {
+  get error(): number | undefined {
     return this.baseSpan.error;
   }
 
