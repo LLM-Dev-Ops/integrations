@@ -1,0 +1,65 @@
+{
+  "name": "@llm-devops/datadog-apm",
+  "version": "0.1.0",
+  "description": "Datadog APM integration for LLM Dev Ops platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write 'src/**/*.ts' '__tests__/**/*.ts'",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "dd-trace": "^5.0.0",
+    "hot-shots": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "prettier": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llm-devops/integrations.git",
+    "directory": "datadog-apm/typescript"
+  },
+  "keywords": [
+    "datadog",
+    "apm",
+    "tracing",
+    "observability",
+    "llm",
+    "opentelemetry"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

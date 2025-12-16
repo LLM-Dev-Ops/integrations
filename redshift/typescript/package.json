@@ -1,0 +1,148 @@
+{
+  "name": "@llmdevops/redshift-integration",
+  "version": "1.0.0",
+  "description": "Amazon Redshift integration for LLM DevOps Platform - A comprehensive TypeScript SDK for Redshift with connection pooling, query execution, transactions, WLM, COPY/UNLOAD operations, and simulation mode",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/auth/index.js",
+      "types": "./dist/auth/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    },
+    "./config": {
+      "import": "./dist/config/index.js",
+      "types": "./dist/config/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/errors/index.js",
+      "types": "./dist/errors/index.d.ts"
+    },
+    "./ingestion": {
+      "import": "./dist/ingestion/index.js",
+      "types": "./dist/ingestion/index.d.ts"
+    },
+    "./metadata": {
+      "import": "./dist/metadata/index.js",
+      "types": "./dist/metadata/index.d.ts"
+    },
+    "./metrics": {
+      "import": "./dist/metrics/index.js",
+      "types": "./dist/metrics/index.d.ts"
+    },
+    "./pool": {
+      "import": "./dist/pool/index.js",
+      "types": "./dist/pool/index.d.ts"
+    },
+    "./query": {
+      "import": "./dist/query/index.js",
+      "types": "./dist/query/index.d.ts"
+    },
+    "./result": {
+      "import": "./dist/result/index.js",
+      "types": "./dist/result/index.d.ts"
+    },
+    "./security": {
+      "import": "./dist/security/index.js",
+      "types": "./dist/security/index.d.ts"
+    },
+    "./simulation": {
+      "import": "./dist/simulation/index.js",
+      "types": "./dist/simulation/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./workload": {
+      "import": "./dist/workload/index.js",
+      "types": "./dist/workload/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "redshift",
+    "amazon",
+    "aws",
+    "database",
+    "data-warehouse",
+    "analytics",
+    "sql",
+    "query",
+    "connection-pool",
+    "typescript",
+    "llm",
+    "devops",
+    "copy",
+    "unload",
+    "spectrum",
+    "wlm"
+  ],
+  "author": "LLM DevOps Platform",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llmdevops/integrations.git",
+    "directory": "redshift/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/llmdevops/integrations/issues"
+  },
+  "homepage": "https://github.com/llmdevops/integrations/tree/main/redshift/typescript#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2",
+    "vitest": "^1.0.4"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-redshift": "^3.400.0",
+    "@aws-sdk/client-sts": "^3.400.0"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-redshift": {
+      "optional": true
+    },
+    "@aws-sdk/client-sts": {
+      "optional": true
+    }
+  }
+}
