@@ -88,14 +88,14 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   // Unsupported codec errors
   {
     pattern: /Unknown encoder ['"]?([^'"]+?)['"]?/i,
-    createError: (stderr, _exitCode, match) => {
+    createError: (_stderr, _exitCode, match) => {
       const codec = match[1];
       return new UnsupportedCodecError(codec, 'video');
     },
   },
   {
     pattern: /Unknown decoder ['"]?([^'"]+?)['"]?/i,
-    createError: (stderr, _exitCode, match) => {
+    createError: (_stderr, _exitCode, match) => {
       const codec = match[1];
       return new UnsupportedCodecError(codec, 'video');
     },
@@ -148,7 +148,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   // Stream not found errors
   {
     pattern: /Stream (?:specifier|map) ['"]?([^'"]+?)['"]? (?:does not )?match(?:es)? any/i,
-    createError: (stderr, _exitCode, match) => {
+    createError: (_stderr, _exitCode, match) => {
       const streamSpec = match[1];
       return new StreamNotFoundError(streamSpec);
     },

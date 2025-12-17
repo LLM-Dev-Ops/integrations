@@ -34,7 +34,7 @@ export class JobManager {
   private activeCount: number = 0;
   private queue: string[] = []; // Job IDs in FIFO order
   private maxConcurrent: number;
-  private tempDir: string;
+  /** @internal */ tempDir: string;
   private paused: boolean = false;
 
   constructor(config: JobManagerConfig = {}) {
@@ -283,7 +283,7 @@ export class JobManager {
     this.queue = [];
 
     // Mark all running jobs as cancelled
-    for (const [jobId, record] of this.jobs.entries()) {
+    for (const [_jobId, record] of this.jobs.entries()) {
       if (record.status === "running") {
         record.status = "cancelled";
         record.completedAt = new Date();

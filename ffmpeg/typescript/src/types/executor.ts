@@ -7,7 +7,7 @@
 
 import type { Readable, Writable } from 'stream';
 import type { FFmpegCommand } from './command.js';
-import type { Progress, ProgressListener } from './progress.js';
+import type { ProgressListener } from './progress.js';
 
 /**
  * Process executor interface for running FFmpeg commands

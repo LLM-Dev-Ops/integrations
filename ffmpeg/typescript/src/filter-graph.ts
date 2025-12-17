@@ -40,7 +40,14 @@ function generateFilterId(): string {
  * FilterGraph class for building FFmpeg filter expressions
  */
 export class FilterGraph {
-  private filters: FilterNode[] = [];
+  private _filters: FilterNode[] = [];
+
+  /**
+   * Get the filters in the graph (readonly)
+   */
+  get filters(): FilterNode[] {
+    return [...this._filters];
+  }
 
   /**
    * Add a filter to the graph
@@ -62,7 +69,7 @@ export class FilterGraph {
       name,
       params: params ?? {},
     };
-    this.filters.push(filter);
+    this._filters.push(filter);
     return this;
   }
 
@@ -158,7 +165,7 @@ export class FilterGraph {
    * ```
    */
   loudnorm(params: LoudnormParams): FilterGraph {
-    return this.addFilter("loudnorm", params);
+    return this.addFilter("loudnorm", params as unknown as Record<string, unknown>);
   }
 
   /**
@@ -194,7 +201,7 @@ export class FilterGraph {
    * ```
    */
   raw(filterString: string): FilterGraph {
-    this.filters.push({
+    this._filters.push({
       id: "raw",
       name: "raw",
       params: {},
@@ -239,7 +246,7 @@ export class FilterGraph {
    * @returns Formatted filter string
    */
   private formatFilter(filter: FilterNode): string {
-    if (Object.keys(filter.params).length === 0) {
+    if (!filter.params || Object.keys(filter.params).length === 0) {
       return filter.name;
     }
 
@@ -248,5 +255,22 @@ export class FilterGraph {
       .join(":");
 
     return `${filter.name}=${paramStr}`;
+  }
+
+  /**
+   * Convert the filter graph to a JSON representation
+   *
+   * @returns JSON object representation of the filter graph
+   */
+  toJSON(): object {
+    return {
+      filters: this.filters.map((f) => ({
+        id: f.id,
+        name: f.name,
+        params: f.params,
+        raw: f.raw,
+      })),
+      filterString: this.toString(),
+    };
   }
 }

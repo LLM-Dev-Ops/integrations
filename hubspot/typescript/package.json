@@ -1,0 +1,43 @@
+{
+  "name": "@integrations/hubspot",
+  "version": "1.0.0",
+  "description": "HubSpot CRM API integration for LLM Dev Ops platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --testPathPattern=unit",
+    "test:integration": "vitest run --testPathPattern=integration",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "hubspot",
+    "crm",
+    "api",
+    "contacts",
+    "companies",
+    "deals",
+    "tickets",
+    "integrations"
+  ],
+  "license": "LicenseRef-LLM-DevOps-Permanent",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}

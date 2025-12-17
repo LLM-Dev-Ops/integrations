@@ -3,7 +3,7 @@
  * Parses FFmpeg stderr output and emits progress events
  */
 
-import { Progress, ProgressListener } from "./types";
+import type { Progress, ProgressListener } from "./types/index.js";
 
 /**
  * ProgressTracker parses FFmpeg's stderr output and emits progress events.

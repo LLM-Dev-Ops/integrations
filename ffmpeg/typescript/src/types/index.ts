@@ -42,11 +42,13 @@ export interface JobResult {
 // Input/Output Specifications
 // ============================================================================
 
+import type { Readable, Writable } from 'stream';
+
 export interface InputSpec {
   type: "file" | "pipe" | "url";
   path?: string;
   url?: string;
-  stream?: NodeJS.ReadableStream;
+  stream?: Readable;
   format?: string;
   seekTo?: number;
   duration?: number;
@@ -56,7 +58,7 @@ export interface InputSpec {
 export interface OutputSpec {
   type: "file" | "pipe";
   path?: string;
-  stream?: NodeJS.WritableStream;
+  stream?: Writable;
   format?: string;
   videoCodec?: string;
   audioCodec?: string;

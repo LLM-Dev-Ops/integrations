@@ -5,7 +5,7 @@
  * and observability settings.
  */
 
-import type { Readable } from 'stream';
+// Readable from 'stream' available if needed for future stream configuration
 
 /**
  * Logger interface for integration logging
