@@ -5,7 +5,6 @@
  */
 // Retry exports
 export { RetryExecutor, createDefaultRetryConfig, } from './retry.js';
-// Circuit breaker exports
 export { CircuitBreaker, CircuitOpenError, createDefaultCircuitBreakerConfig, } from './circuit-breaker.js';
 // Rate limiter exports
 export { RateLimiter, createDefaultRateLimiterConfig, } from './rate-limiter.js';

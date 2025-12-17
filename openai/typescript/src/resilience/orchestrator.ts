@@ -165,13 +165,30 @@ export class DefaultResilienceOrchestrator implements ResilienceOrchestrator {
   async *stream<T>(request: HttpRequest): AsyncIterable<T> {
     this.checkCircuitBreaker();
 
+    const startTime = Date.now();
+    let hasError = false;
+    let streamError: Error | undefined;
+
     try {
+      // Run request hooks for stream start
+      await this.runRequestHooks(request, 0);
+
       for await (const chunk of this.transport.stream<T>(request)) {
         yield chunk;
       }
+
+      // Record success and run response hooks
       this.circuitBreaker?.recordSuccess();
+      const duration = Date.now() - startTime;
+      await this.runResponseHooks(request, {} as T, duration, 0);
     } catch (error) {
+      hasError = true;
+      streamError = error as Error;
       this.circuitBreaker?.recordFailure();
+
+      // Run error hooks
+      await this.runErrorHooks(request, streamError, 0);
+
       throw error;
     }
   }

@@ -21,8 +21,8 @@ import { ModerationsServiceImpl } from '../services/moderations/index.js';
 import { FineTuningServiceImpl } from '../services/fine-tuning/index.js';
 import { AssistantsServiceImpl } from '../services/assistants/index.js';
 import { FetchHttpTransport } from '../transport/http-transport.js';
-import { ResilienceOrchestrator } from '../resilience/orchestrator.js';
-import { DefaultRetryHook } from '../resilience/hooks.js';
+import { DefaultResilienceOrchestrator, DEFAULT_RESILIENCE_CONFIG } from '../resilience/orchestrator.js';
+import { DefaultRetryHook, TelemetryHooks } from '../resilience/hooks.js';
 import { createAuthManager } from '../auth/auth-manager.js';
 import { normalizeConfig } from './config.js';
 
@@ -39,7 +39,7 @@ export class OpenAIClientImpl implements OpenAIClient {
   public readonly assistants: AssistantsService;
 
   private readonly config: NormalizedConfig;
-  private readonly orchestrator: ResilienceOrchestrator;
+  private readonly orchestrator: DefaultResilienceOrchestrator;
 
   constructor(config: OpenAIConfig) {
     this.config = normalizeConfig(config);
@@ -61,13 +61,16 @@ export class OpenAIClientImpl implements OpenAIClient {
       this.config.timeout
     );
 
-    this.orchestrator = new ResilienceOrchestrator(transport, {
+    this.orchestrator = new DefaultResilienceOrchestrator(transport, {
+      ...DEFAULT_RESILIENCE_CONFIG,
       maxRetries: this.config.maxRetries,
-      timeout: this.config.timeout,
     });
 
-    const retryHook = new DefaultRetryHook(this.config.maxRetries);
-    this.orchestrator.getHookRegistry().setRetryHook(retryHook);
+    // Register telemetry hooks for observability
+    const telemetryHooks = new TelemetryHooks();
+    this.orchestrator.addRequestHook(telemetryHooks.onRequest);
+    this.orchestrator.addResponseHook(telemetryHooks.onResponse);
+    this.orchestrator.addErrorHook(telemetryHooks.onError);
 
     this.chat = new ChatCompletionServiceImpl(this.orchestrator);
     this.embeddings = new EmbeddingsServiceImpl(this.orchestrator);

@@ -20,7 +20,7 @@ export declare class CircuitBreaker {
     private state;
     private failureCount;
     private successCount;
-    private lastFailureTime?;
+    private lastFailureTime;
     private config;
     private hooks;
     constructor(config: CircuitBreakerConfig);
@@ -72,6 +72,32 @@ export declare class CircuitBreaker {
      * Reset the circuit breaker to closed state
      */
     reset(): void;
+    /**
+     * Get comprehensive statistics about the circuit breaker state
+     */
+    getStats(): CircuitBreakerStats;
+    /**
+     * Get time remaining until circuit transitions to half-open (if open)
+     * Returns undefined if circuit is not open
+     */
+    private getTimeUntilHalfOpen;
+}
+/**
+ * Statistics about circuit breaker state
+ */
+export interface CircuitBreakerStats {
+    /** Current circuit state */
+    state: CircuitState;
+    /** Number of consecutive failures */
+    failureCount: number;
+    /** Number of consecutive successes (in half-open state) */
+    successCount: number;
+    /** Timestamp of last failure */
+    lastFailureTime: number | undefined;
+    /** Current configuration */
+    config: CircuitBreakerConfig;
+    /** Time in ms until circuit transitions to half-open (if open) */
+    timeUntilHalfOpen: number | undefined;
 }
 /**
  * Create a default circuit breaker configuration

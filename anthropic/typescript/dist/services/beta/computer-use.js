@@ -131,12 +131,15 @@ export class ComputerToolResultBuilder {
         if (this.content.length === 0) {
             throw new Error('Tool result must have at least one content item');
         }
-        return {
+        const result = {
             type: 'tool_result',
             tool_use_id: this.toolUseId,
             content: this.content,
-            is_error: this.isError ? true : undefined,
         };
+        if (this.isError) {
+            result.is_error = true;
+        }
+        return result;
     }
 }
 /**

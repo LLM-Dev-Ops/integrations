@@ -7,4 +7,6 @@ export { createSpan, withParent, withAttribute, finishSpan, finishSpanWithError,
 export { InMemoryMetricsCollector, NoopMetricsCollector, MetricNames, } from './metrics.js';
 // Logging exports
 export { createDefaultLoggingConfig, ConsoleLogger, NoopLogger, logRequest, logResponse, logError, } from './logging.js';
+// Telemetry exports
+export { startTelemetryContext, emitRequestComplete, emitError, extractUsageMetadata, } from './telemetry.js';
 //# sourceMappingURL=index.js.map

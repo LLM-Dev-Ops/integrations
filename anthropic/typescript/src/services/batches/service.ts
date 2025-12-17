@@ -9,6 +9,11 @@ import type {
   BatchResultsResponse,
 } from './types.js';
 import { ValidationError } from '../../errors/categories.js';
+import {
+  startTelemetryContext,
+  emitRequestComplete,
+  emitError,
+} from '../../observability/telemetry.js';
 
 export interface BatchesService {
   create(request: CreateBatchRequest, options?: RequestOptions): Promise<MessageBatch>;
@@ -28,21 +33,44 @@ export class BatchesServiceImpl implements BatchesService {
   async create(request: CreateBatchRequest, options?: RequestOptions): Promise<MessageBatch> {
     this.validateCreateBatchRequest(request);
 
-    return this.resilience.execute(async () => {
-      const headers = this.authManager.getHeaders();
-      return this.transport.request<MessageBatch>(
-        'POST',
-        '/v1/messages/batches',
-        request,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            ...options?.headers,
-          },
-        }
-      );
+    // Start telemetry context
+    const telemetryContext = startTelemetryContext({
+      operation: 'batches.create',
+      metadata: {
+        requestCount: request.requests.length,
+      },
     });
+
+    try {
+      const result = await this.resilience.execute(async () => {
+        const headers = this.authManager.getHeaders();
+        return this.transport.request<MessageBatch>(
+          'POST',
+          '/v1/messages/batches',
+          request,
+          {
+            ...options,
+            headers: {
+              ...headers,
+              ...options?.headers,
+            },
+          }
+        );
+      });
+
+      // Emit completion event
+      emitRequestComplete(telemetryContext, {
+        batchId: result.id,
+        status: result.processing_status,
+        requestCounts: result.request_counts,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      emitError(telemetryContext, error);
+      throw error;
+    }
   }
 
   async retrieve(batchId: string, options?: RequestOptions): Promise<MessageBatch> {
@@ -50,21 +78,44 @@ export class BatchesServiceImpl implements BatchesService {
       throw new ValidationError('Batch ID is required and must be a non-empty string');
     }
 
-    return this.resilience.execute(async () => {
-      const headers = this.authManager.getHeaders();
-      return this.transport.request<MessageBatch>(
-        'GET',
-        `/v1/messages/batches/${batchId}`,
-        undefined,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            ...options?.headers,
-          },
-        }
-      );
+    // Start telemetry context
+    const telemetryContext = startTelemetryContext({
+      operation: 'batches.retrieve',
+      metadata: {
+        batchId,
+      },
     });
+
+    try {
+      const result = await this.resilience.execute(async () => {
+        const headers = this.authManager.getHeaders();
+        return this.transport.request<MessageBatch>(
+          'GET',
+          `/v1/messages/batches/${batchId}`,
+          undefined,
+          {
+            ...options,
+            headers: {
+              ...headers,
+              ...options?.headers,
+            },
+          }
+        );
+      });
+
+      // Emit completion event
+      emitRequestComplete(telemetryContext, {
+        batchId: result.id,
+        status: result.processing_status,
+        requestCounts: result.request_counts,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      emitError(telemetryContext, error);
+      throw error;
+    }
   }
 
   async list(params?: BatchListParams, options?: RequestOptions): Promise<BatchListResponse> {
@@ -72,24 +123,47 @@ export class BatchesServiceImpl implements BatchesService {
       this.validateListParams(params);
     }
 
-    return this.resilience.execute(async () => {
-      const headers = this.authManager.getHeaders();
-      const queryParams = this.buildQueryParams(params);
-      const path = queryParams ? `/v1/messages/batches?${queryParams}` : '/v1/messages/batches';
-
-      return this.transport.request<BatchListResponse>(
-        'GET',
-        path,
-        undefined,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            ...options?.headers,
-          },
-        }
-      );
+    // Start telemetry context
+    const telemetryContext = startTelemetryContext({
+      operation: 'batches.list',
+      metadata: {
+        limit: params?.limit,
+        hasPagination: !!(params?.before_id || params?.after_id),
+      },
     });
+
+    try {
+      const result = await this.resilience.execute(async () => {
+        const headers = this.authManager.getHeaders();
+        const queryParams = this.buildQueryParams(params);
+        const path = queryParams ? `/v1/messages/batches?${queryParams}` : '/v1/messages/batches';
+
+        return this.transport.request<BatchListResponse>(
+          'GET',
+          path,
+          undefined,
+          {
+            ...options,
+            headers: {
+              ...headers,
+              ...options?.headers,
+            },
+          }
+        );
+      });
+
+      // Emit completion event
+      emitRequestComplete(telemetryContext, {
+        batchCount: result.data?.length,
+        hasMore: result.has_more,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      emitError(telemetryContext, error);
+      throw error;
+    }
   }
 
   async cancel(batchId: string, options?: RequestOptions): Promise<MessageBatch> {
@@ -97,21 +171,43 @@ export class BatchesServiceImpl implements BatchesService {
       throw new ValidationError('Batch ID is required and must be a non-empty string');
     }
 
-    return this.resilience.execute(async () => {
-      const headers = this.authManager.getHeaders();
-      return this.transport.request<MessageBatch>(
-        'POST',
-        `/v1/messages/batches/${batchId}/cancel`,
-        undefined,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            ...options?.headers,
-          },
-        }
-      );
+    // Start telemetry context
+    const telemetryContext = startTelemetryContext({
+      operation: 'batches.cancel',
+      metadata: {
+        batchId,
+      },
     });
+
+    try {
+      const result = await this.resilience.execute(async () => {
+        const headers = this.authManager.getHeaders();
+        return this.transport.request<MessageBatch>(
+          'POST',
+          `/v1/messages/batches/${batchId}/cancel`,
+          undefined,
+          {
+            ...options,
+            headers: {
+              ...headers,
+              ...options?.headers,
+            },
+          }
+        );
+      });
+
+      // Emit completion event
+      emitRequestComplete(telemetryContext, {
+        batchId: result.id,
+        status: result.processing_status,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      emitError(telemetryContext, error);
+      throw error;
+    }
   }
 
   async results(batchId: string, options?: RequestOptions): Promise<BatchResultsResponse> {
@@ -119,21 +215,43 @@ export class BatchesServiceImpl implements BatchesService {
       throw new ValidationError('Batch ID is required and must be a non-empty string');
     }
 
-    return this.resilience.execute(async () => {
-      const headers = this.authManager.getHeaders();
-      return this.transport.request<BatchResultsResponse>(
-        'GET',
-        `/v1/messages/batches/${batchId}/results`,
-        undefined,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            ...options?.headers,
-          },
-        }
-      );
+    // Start telemetry context
+    const telemetryContext = startTelemetryContext({
+      operation: 'batches.results',
+      metadata: {
+        batchId,
+      },
     });
+
+    try {
+      const result = await this.resilience.execute(async () => {
+        const headers = this.authManager.getHeaders();
+        return this.transport.request<BatchResultsResponse>(
+          'GET',
+          `/v1/messages/batches/${batchId}/results`,
+          undefined,
+          {
+            ...options,
+            headers: {
+              ...headers,
+              ...options?.headers,
+            },
+          }
+        );
+      });
+
+      // Emit completion event
+      emitRequestComplete(telemetryContext, {
+        batchId,
+        resultCount: result.length,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      emitError(telemetryContext, error);
+      throw error;
+    }
   }
 
   private validateCreateBatchRequest(request: CreateBatchRequest): void {

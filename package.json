@@ -2,11 +2,20 @@
   "name": "integrations",
   "private": true,
   "workspaces": [
-    "shared/database"
+    "shared/database",
+    "shared/telemetry-emitter",
+    "ruvvector-service",
+    "anthropic/typescript"
   ],
   "scripts": {
     "test:db": "cd shared/database && npm run test:connection",
-    "db:build": "cd shared/database && npm run build"
+    "db:build": "cd shared/database && npm run build",
+    "ruvvector:build": "cd ruvvector-service && npm run build",
+    "ruvvector:start": "cd ruvvector-service && npm start",
+    "ruvvector:dev": "cd ruvvector-service && npm run dev",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0"

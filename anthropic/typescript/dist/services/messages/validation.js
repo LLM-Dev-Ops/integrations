@@ -82,7 +82,7 @@ export function validateCreateMessageRequest(request) {
         validateToolChoice(request.tool_choice, errors);
     }
     if (request.thinking !== undefined) {
-        validateThinkingConfig(request.thinking, errors);
+        validateThinkingConfig(request.thinking, errors, request.model);
     }
     if (errors.length > 0) {
         throw new ValidationError('Request validation failed', errors);
@@ -200,7 +200,7 @@ function validateToolChoice(toolChoice, errors) {
         }
     }
 }
-function validateThinkingConfig(thinking, errors) {
+function validateThinkingConfig(thinking, errors, model) {
     if (!thinking.type) {
         errors.push('thinking.type is required');
     }
@@ -214,8 +214,21 @@ function validateThinkingConfig(thinking, errors) {
         else if (!Number.isInteger(thinking.budget_tokens)) {
             errors.push('thinking.budget_tokens must be an integer');
         }
-        else if (thinking.budget_tokens <= 0) {
-            errors.push('thinking.budget_tokens must be greater than 0');
+        else if (thinking.budget_tokens < 1024) {
+            // SPARC requirement: budget_tokens must be at least 1024
+            errors.push('thinking.budget_tokens must be at least 1024');
+        }
+    }
+    // Validate model compatibility for extended thinking
+    if (thinking.type === 'enabled' && model) {
+        const supportedModels = [
+            'claude-sonnet-4-20250514',
+            'claude-3-7-sonnet-20250219',
+            'claude-3-5-sonnet-20241022',
+        ];
+        const isSupported = supportedModels.some(m => model.startsWith(m));
+        if (!isSupported) {
+            errors.push(`extended thinking is only supported on models: ${supportedModels.join(', ')}`);
         }
     }
 }

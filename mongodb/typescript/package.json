@@ -38,6 +38,10 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "dependencies": {
+    "@integrations/telemetry-emitter": "file:../../../shared/telemetry-emitter",
+    "undici": "^6.0.0"
+  },
   "peerDependencies": {
     "mongodb": "^6.0.0"
   },

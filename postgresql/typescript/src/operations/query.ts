@@ -17,6 +17,8 @@ import {
 } from '../errors/index.js';
 import type { Observability, SpanContext } from '../observability/index.js';
 import { MetricNames } from '../observability/index.js';
+import { TelemetryEmitter } from '@integrations/telemetry-emitter';
+import { randomUUID } from 'crypto';
 
 // ============================================================================
 // Query Parameter Types
@@ -196,9 +198,24 @@ export class PreparedStatement {
       paramCount: params?.length ?? 0,
     });
 
+    // Generate correlation ID for telemetry
+    const correlationId = randomUUID();
+
     try {
       const startTime = Date.now();
       const executeQuery = `EXECUTE ${this.name}${params && params.length > 0 ? ` (${params.map((_, i) => `$${i + 1}`).join(', ')})` : ''}`;
+
+      // Emit telemetry: Query initiation
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitRequestStart('postgresql', correlationId, {
+          statementType: 'prepared',
+          statementName: this.name,
+          paramCount: params?.length ?? 0,
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
 
       this.observability.logger.debug('Executing prepared statement', {
         name: this.name,
@@ -235,6 +252,25 @@ export class PreparedStatement {
         });
       }
 
+      // Emit telemetry: Query completion
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitRequestComplete('postgresql', correlationId, {
+          statementType: 'prepared',
+          statementName: this.name,
+          queryType: result.command,
+          rowCount: result.rowCount,
+        });
+
+        // Emit latency event
+        telemetry.emitLatency('postgresql', correlationId, duration, {
+          statementType: 'prepared',
+          queryType: result.command,
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
+
       span.setStatus('OK');
       span.setAttribute('duration_ms', duration);
       span.setAttribute('row_count', result.rowCount);
@@ -242,11 +278,25 @@ export class PreparedStatement {
 
       return result;
     } catch (error) {
+      const duration = Date.now() - (span as any).startTime || 0;
       span.recordException(error as Error);
       span.setStatus('ERROR', (error as Error).message);
       this.observability.metrics.increment(MetricNames.ERRORS_TOTAL, 1, {
         error_type: 'prepared_statement_execution',
       });
+
+      // Emit telemetry: Error
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitError('postgresql', correlationId, error as Error, {
+          statementType: 'prepared',
+          statementName: this.name,
+          duration,
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
+
       throw this.wrapError(error, 'Failed to execute prepared statement');
     } finally {
       span.end();
@@ -387,12 +437,30 @@ export class QueryExecutor {
         const startTime = Date.now();
         let client: PoolClient | undefined;
 
+        // Generate correlation ID for telemetry
+        const correlationId = randomUUID();
+
+        // Extract query type for telemetry metadata
+        const queryType = this.extractQueryType(query);
+
         try {
           // Set span attributes
           span.setAttribute('query', this.redactQuery(query));
           span.setAttribute('param_count', params?.length ?? 0);
           if (options?.target) {
             span.setAttribute('target', options.target);
+          }
+
+          // Emit telemetry: Query initiation
+          try {
+            const telemetry = TelemetryEmitter.getInstance();
+            telemetry.emitRequestStart('postgresql', correlationId, {
+              queryType,
+              paramCount: params?.length ?? 0,
+              target: options?.target || 'any',
+            });
+          } catch {
+            // Fail-open: ignore telemetry errors
           }
 
           // Acquire connection
@@ -425,6 +493,23 @@ export class QueryExecutor {
             duration,
           });
 
+          // Emit telemetry: Query completion
+          try {
+            const telemetry = TelemetryEmitter.getInstance();
+            telemetry.emitRequestComplete('postgresql', correlationId, {
+              queryType: result.command,
+              rowCount: result.rowCount,
+              fieldCount: result.fields.length,
+            });
+
+            // Emit latency event
+            telemetry.emitLatency('postgresql', correlationId, duration, {
+              queryType: result.command,
+            });
+          } catch {
+            // Fail-open: ignore telemetry errors
+          }
+
           span.setStatus('OK');
           return result;
         } catch (error) {
@@ -442,6 +527,17 @@ export class QueryExecutor {
             error: (error as Error).message,
             duration,
           });
+
+          // Emit telemetry: Error
+          try {
+            const telemetry = TelemetryEmitter.getInstance();
+            telemetry.emitError('postgresql', correlationId, error as Error, {
+              queryType,
+              duration,
+            });
+          } catch {
+            // Fail-open: ignore telemetry errors
+          }
 
           throw this.wrapError(error, query);
         } finally {
@@ -768,6 +864,13 @@ export class QueryExecutor {
       return query;
     }
     return query.substring(0, maxLength) + '...';
+  }
+
+  private extractQueryType(query: string): string {
+    // Extract the first SQL keyword (SELECT, INSERT, UPDATE, DELETE, etc.)
+    const trimmed = query.trim().toUpperCase();
+    const match = trimmed.match(/^(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|BEGIN|COMMIT|ROLLBACK)/);
+    return match?.[1] ?? 'UNKNOWN';
   }
 
   private wrapError(error: unknown, query: string): PgError {

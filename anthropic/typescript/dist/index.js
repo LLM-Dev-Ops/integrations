@@ -32,7 +32,18 @@ export { FetchHttpTransport, createHttpTransport, readSSEStream, } from './trans
 export { OrganizationsServiceImpl, WorkspacesServiceImpl, ApiKeysServiceImpl, InvitesServiceImpl, UsersServiceImpl, } from './services/index.js';
 export { RetryExecutor, createDefaultRetryConfig, CircuitBreaker, CircuitOpenError, createDefaultCircuitBreakerConfig, RateLimiter, createDefaultRateLimiterConfig, DefaultResilienceOrchestrator, PassthroughResilienceOrchestrator, createDefaultResilienceConfig, } from './resilience/index.js';
 // Observability exports
-export { createSpan, withParent, withAttribute, finishSpan, finishSpanWithError, getSpanDuration, DefaultTracer, NoopTracer, InMemoryMetricsCollector, NoopMetricsCollector, MetricNames, createDefaultLoggingConfig, ConsoleLogger, NoopLogger, logRequest, logResponse, logError, } from './observability/index.js';
+export { createSpan, withParent, withAttribute, finishSpan, finishSpanWithError, getSpanDuration, DefaultTracer, NoopTracer, InMemoryMetricsCollector, NoopMetricsCollector, MetricNames, createDefaultLoggingConfig, ConsoleLogger, NoopLogger, logRequest, logResponse, logError, startTelemetryContext, emitRequestComplete, emitError as emitTelemetryError, extractUsageMetadata, } from './observability/index.js';
+export { 
+// Extended thinking
+createThinkingConfig, withThinking, extractThinkingBlocks, getThinkingText, hasThinkingBlocks, estimateThinkingTokens, 
+// PDF support
+createPdfContent, createPdfContentFromBuffer, createPdfContentFromArrayBuffer, createPdfContentFromBytes, validatePdfBytes, validatePdfBase64, estimatePdfSize, isPdfWithinSizeLimit, 
+// Prompt caching
+createCacheControl, createCacheableSystemPrompt, createCacheableSystemPrompts, hasCacheUsage, getCacheEfficiency, calculateTokensSaved, calculateCostSavings, getCacheStats, isCachingEffective, 
+// Token counting
+TokenCountingServiceImpl, createTokenCountingService, 
+// Computer use
+COMPUTER_USE_BETA_HEADER, createComputerTool, createTextEditorTool, createBashTool, createComputerUseTools, ComputerToolResultBuilder, createComputerToolResult, createTextToolResult, createScreenshotToolResult, validateComputerTool, } from './services/beta/index.js';
 // Version
 export const VERSION = '0.1.0';
 //# sourceMappingURL=index.js.map

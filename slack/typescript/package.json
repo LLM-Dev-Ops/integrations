@@ -32,7 +32,8 @@
     "url": "https://github.com/anthropics/integrations"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "@integrations/telemetry-emitter": "file:../../../shared/telemetry-emitter"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

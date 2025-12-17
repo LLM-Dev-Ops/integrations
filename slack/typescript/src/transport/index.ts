@@ -3,6 +3,8 @@
  */
 
 import { SlackError, NetworkError, RateLimitError, AuthenticationError, ServerError } from '../errors';
+import { TelemetryEmitter } from '../telemetry';
+import { randomUUID } from 'crypto';
 
 /**
  * HTTP request options
@@ -124,30 +126,117 @@ export class FetchTransport implements HttpTransport {
 export class SlackTransport implements HttpTransport {
   private transport: HttpTransport;
   private token: string;
+  private telemetry: TelemetryEmitter;
 
   constructor(token: string, transport?: HttpTransport) {
     this.token = token;
     this.transport = transport ?? new FetchTransport();
+    this.telemetry = new TelemetryEmitter();
   }
 
   async request<T extends SlackApiResponse>(
     endpoint: string,
     options: RequestOptions
   ): Promise<HttpResponse<T>> {
-    const headers: Record<string, string> = {
-      ...options.headers,
-      'Authorization': `Bearer ${this.token}`,
-    };
+    // Generate correlation ID for request tracing
+    const correlationId = randomUUID();
+    const startTime = Date.now();
 
-    const response = await this.transport.request<T>(endpoint, {
-      ...options,
-      headers,
-    });
+    // Extract method name from endpoint (e.g., "chat.postMessage" from "/chat.postMessage")
+    const method = endpoint.replace(/^\//, '').split('?')[0];
 
-    // Handle Slack-specific errors
-    this.handleSlackResponse(response);
+    // Emit request_start telemetry event
+    try {
+      await this.telemetry.emit({
+        correlationId,
+        integration: 'slack',
+        provider: method,
+        eventType: 'request_start',
+        timestamp: startTime,
+        metadata: {
+          method,
+          httpMethod: options.method,
+        },
+      });
+    } catch (error) {
+      // Telemetry is fail-open, but catch any unexpected errors
+    }
 
-    return response;
+    try {
+      const headers: Record<string, string> = {
+        ...options.headers,
+        'Authorization': `Bearer ${this.token}`,
+      };
+
+      const response = await this.transport.request<T>(endpoint, {
+        ...options,
+        headers,
+      });
+
+      // Handle Slack-specific errors
+      this.handleSlackResponse(response);
+
+      // Calculate latency
+      const latencyMs = Date.now() - startTime;
+
+      // Emit request_complete and latency telemetry events
+      try {
+        await Promise.all([
+          this.telemetry.emit({
+            correlationId,
+            integration: 'slack',
+            provider: method,
+            eventType: 'request_complete',
+            timestamp: Date.now(),
+            metadata: {
+              method,
+              statusCode: response.status,
+              ok: response.data.ok,
+            },
+          }),
+          this.telemetry.emit({
+            correlationId,
+            integration: 'slack',
+            provider: method,
+            eventType: 'latency',
+            timestamp: Date.now(),
+            metadata: {
+              method,
+              latencyMs,
+            },
+          }),
+        ]);
+      } catch (error) {
+        // Telemetry is fail-open
+      }
+
+      return response;
+    } catch (error) {
+      // Calculate latency even for errors
+      const latencyMs = Date.now() - startTime;
+
+      // Emit error telemetry event
+      try {
+        await this.telemetry.emit({
+          correlationId,
+          integration: 'slack',
+          provider: method,
+          eventType: 'error',
+          timestamp: Date.now(),
+          metadata: {
+            method,
+            latencyMs,
+            errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+        });
+      } catch (telemetryError) {
+        // Telemetry is fail-open
+      }
+
+      // Re-throw the original error
+      throw error;
+    }
   }
 
   private handleSlackResponse<T extends SlackApiResponse>(response: HttpResponse<T>): void {

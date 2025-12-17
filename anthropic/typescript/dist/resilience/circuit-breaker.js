@@ -22,7 +22,7 @@ export class CircuitBreaker {
     state = 'closed';
     failureCount = 0;
     successCount = 0;
-    lastFailureTime;
+    lastFailureTime = undefined;
     config;
     hooks = [];
     constructor(config) {
@@ -147,6 +147,31 @@ export class CircuitBreaker {
         this.failureCount = 0;
         this.successCount = 0;
         this.lastFailureTime = undefined;
+    }
+    /**
+     * Get comprehensive statistics about the circuit breaker state
+     */
+    getStats() {
+        return {
+            state: this.state,
+            failureCount: this.failureCount,
+            successCount: this.successCount,
+            lastFailureTime: this.lastFailureTime,
+            config: { ...this.config },
+            timeUntilHalfOpen: this.getTimeUntilHalfOpen(),
+        };
+    }
+    /**
+     * Get time remaining until circuit transitions to half-open (if open)
+     * Returns undefined if circuit is not open
+     */
+    getTimeUntilHalfOpen() {
+        if (this.state !== 'open' || !this.lastFailureTime) {
+            return undefined;
+        }
+        const elapsed = Date.now() - this.lastFailureTime;
+        const remaining = this.config.openDurationMs - elapsed;
+        return remaining > 0 ? remaining : 0;
     }
 }
 /**

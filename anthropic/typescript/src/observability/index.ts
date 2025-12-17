@@ -38,3 +38,13 @@ export {
   logResponse,
   logError,
 } from './logging.js';
+
+// Telemetry exports
+export {
+  type TelemetryOptions,
+  type TelemetryContext,
+  startTelemetryContext,
+  emitRequestComplete,
+  emitError,
+  extractUsageMetadata,
+} from './telemetry.js';

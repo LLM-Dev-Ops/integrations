@@ -218,6 +218,12 @@ export {
   logRequest,
   logResponse,
   logError,
+  type TelemetryOptions,
+  type TelemetryContext,
+  startTelemetryContext,
+  emitRequestComplete,
+  emitError as emitTelemetryError,
+  extractUsageMetadata,
 } from './observability/index.js';
 
 // Beta features exports

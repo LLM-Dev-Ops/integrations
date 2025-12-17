@@ -1,4 +1,5 @@
 import { ValidationError } from '../../errors/categories.js';
+import { startTelemetryContext, emitRequestComplete, emitError, } from '../../observability/telemetry.js';
 export class BatchesServiceImpl {
     transport;
     authManager;
@@ -10,78 +11,181 @@ export class BatchesServiceImpl {
     }
     async create(request, options) {
         this.validateCreateBatchRequest(request);
-        return this.resilience.execute(async () => {
-            const headers = this.authManager.getHeaders();
-            return this.transport.request('POST', '/v1/messages/batches', request, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options?.headers,
-                },
-            });
+        // Start telemetry context
+        const telemetryContext = startTelemetryContext({
+            operation: 'batches.create',
+            metadata: {
+                requestCount: request.requests.length,
+            },
         });
+        try {
+            const result = await this.resilience.execute(async () => {
+                const headers = this.authManager.getHeaders();
+                return this.transport.request('POST', '/v1/messages/batches', request, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options?.headers,
+                    },
+                });
+            });
+            // Emit completion event
+            emitRequestComplete(telemetryContext, {
+                batchId: result.id,
+                status: result.processing_status,
+                requestCounts: result.request_counts,
+            });
+            return result;
+        }
+        catch (error) {
+            // Emit error event
+            emitError(telemetryContext, error);
+            throw error;
+        }
     }
     async retrieve(batchId, options) {
         if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
             throw new ValidationError('Batch ID is required and must be a non-empty string');
         }
-        return this.resilience.execute(async () => {
-            const headers = this.authManager.getHeaders();
-            return this.transport.request('GET', `/v1/messages/batches/${batchId}`, undefined, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options?.headers,
-                },
-            });
+        // Start telemetry context
+        const telemetryContext = startTelemetryContext({
+            operation: 'batches.retrieve',
+            metadata: {
+                batchId,
+            },
         });
+        try {
+            const result = await this.resilience.execute(async () => {
+                const headers = this.authManager.getHeaders();
+                return this.transport.request('GET', `/v1/messages/batches/${batchId}`, undefined, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options?.headers,
+                    },
+                });
+            });
+            // Emit completion event
+            emitRequestComplete(telemetryContext, {
+                batchId: result.id,
+                status: result.processing_status,
+                requestCounts: result.request_counts,
+            });
+            return result;
+        }
+        catch (error) {
+            // Emit error event
+            emitError(telemetryContext, error);
+            throw error;
+        }
     }
     async list(params, options) {
         if (params) {
             this.validateListParams(params);
         }
-        return this.resilience.execute(async () => {
-            const headers = this.authManager.getHeaders();
-            const queryParams = this.buildQueryParams(params);
-            const path = queryParams ? `/v1/messages/batches?${queryParams}` : '/v1/messages/batches';
-            return this.transport.request('GET', path, undefined, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options?.headers,
-                },
-            });
+        // Start telemetry context
+        const telemetryContext = startTelemetryContext({
+            operation: 'batches.list',
+            metadata: {
+                limit: params?.limit,
+                hasPagination: !!(params?.before_id || params?.after_id),
+            },
         });
+        try {
+            const result = await this.resilience.execute(async () => {
+                const headers = this.authManager.getHeaders();
+                const queryParams = this.buildQueryParams(params);
+                const path = queryParams ? `/v1/messages/batches?${queryParams}` : '/v1/messages/batches';
+                return this.transport.request('GET', path, undefined, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options?.headers,
+                    },
+                });
+            });
+            // Emit completion event
+            emitRequestComplete(telemetryContext, {
+                batchCount: result.data?.length,
+                hasMore: result.has_more,
+            });
+            return result;
+        }
+        catch (error) {
+            // Emit error event
+            emitError(telemetryContext, error);
+            throw error;
+        }
     }
     async cancel(batchId, options) {
         if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
             throw new ValidationError('Batch ID is required and must be a non-empty string');
         }
-        return this.resilience.execute(async () => {
-            const headers = this.authManager.getHeaders();
-            return this.transport.request('POST', `/v1/messages/batches/${batchId}/cancel`, undefined, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options?.headers,
-                },
-            });
+        // Start telemetry context
+        const telemetryContext = startTelemetryContext({
+            operation: 'batches.cancel',
+            metadata: {
+                batchId,
+            },
         });
+        try {
+            const result = await this.resilience.execute(async () => {
+                const headers = this.authManager.getHeaders();
+                return this.transport.request('POST', `/v1/messages/batches/${batchId}/cancel`, undefined, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options?.headers,
+                    },
+                });
+            });
+            // Emit completion event
+            emitRequestComplete(telemetryContext, {
+                batchId: result.id,
+                status: result.processing_status,
+            });
+            return result;
+        }
+        catch (error) {
+            // Emit error event
+            emitError(telemetryContext, error);
+            throw error;
+        }
     }
     async results(batchId, options) {
         if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
             throw new ValidationError('Batch ID is required and must be a non-empty string');
         }
-        return this.resilience.execute(async () => {
-            const headers = this.authManager.getHeaders();
-            return this.transport.request('GET', `/v1/messages/batches/${batchId}/results`, undefined, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options?.headers,
-                },
-            });
+        // Start telemetry context
+        const telemetryContext = startTelemetryContext({
+            operation: 'batches.results',
+            metadata: {
+                batchId,
+            },
         });
+        try {
+            const result = await this.resilience.execute(async () => {
+                const headers = this.authManager.getHeaders();
+                return this.transport.request('GET', `/v1/messages/batches/${batchId}/results`, undefined, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options?.headers,
+                    },
+                });
+            });
+            // Emit completion event
+            emitRequestComplete(telemetryContext, {
+                batchId,
+                resultCount: result.length,
+            });
+            return result;
+        }
+        catch (error) {
+            // Emit error event
+            emitError(telemetryContext, error);
+            throw error;
+        }
     }
     validateCreateBatchRequest(request) {
         if (!request) {

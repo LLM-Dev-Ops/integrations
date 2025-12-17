@@ -4,6 +4,8 @@
  * Provides CRUD operations, aggregation, indexing, and change streams for MongoDB collections.
  */
 
+import crypto from 'node:crypto';
+
 import {
   Document,
   Filter,
@@ -43,6 +45,7 @@ import {
   parseMongoDBError,
 } from '../errors/index.js';
 import { MetricNames } from '../observability/index.js';
+import { TelemetryEmitter } from '../../../../shared/telemetry-emitter/dist/index.js';
 
 // Import MongoDB driver types (these would be from the official mongodb driver)
 // In a real implementation, these would be: import { Collection, ...} from 'mongodb';
@@ -153,6 +156,7 @@ export class MongoDBCollection<T extends Document = Document> {
   private readonly client: MongoDBClient;
   private readonly collectionName: string;
   private readonly databaseName: string;
+  private readonly telemetry: TelemetryEmitter;
 
   /**
    * Creates a new MongoDBCollection instance.
@@ -172,6 +176,7 @@ export class MongoDBCollection<T extends Document = Document> {
     this.client = client;
     this.databaseName = dbName;
     this.collectionName = collName;
+    this.telemetry = TelemetryEmitter.getInstance();
   }
 
   /**
@@ -204,6 +209,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.findOne',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
 
@@ -219,10 +226,23 @@ export class MongoDBCollection<T extends Document = Document> {
           filter: this.sanitizeFilter(filter),
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'findOne',
+            collection: this.collectionName,
+            database: this.databaseName,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const result = await this.client.execute(() =>
             this.collection.findOne(filter, options)
           ) as T | null;
+
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -231,7 +251,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'findOne', collection: this.collectionName }
           );
 
@@ -243,8 +263,45 @@ export class MongoDBCollection<T extends Document = Document> {
 
           span.setAttribute('found', !!result);
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'findOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              found: !!result,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'findOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return result;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'findOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'findOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('findOne', error, span);
           throw error;
         }
@@ -265,6 +322,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.find',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
 
@@ -282,9 +341,23 @@ export class MongoDBCollection<T extends Document = Document> {
           skip: options?.skip,
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'find',
+            collection: this.collectionName,
+            database: this.databaseName,
+            limit: options?.limit,
+            skip: options?.skip,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const cursor = this.collection.find(filter, options);
           const results = await this.client.execute(() => cursor.toArray());
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -293,7 +366,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'find', collection: this.collectionName }
           );
           this.client.metrics.increment(MetricNames.DOCUMENTS_READ, results.length, {
@@ -302,8 +375,45 @@ export class MongoDBCollection<T extends Document = Document> {
 
           span.setAttribute('count', results.length);
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'find',
+              collection: this.collectionName,
+              database: this.databaseName,
+              documentCount: results.length,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'find',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return results;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'find',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'find',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('find', error, span);
           throw error;
         }
@@ -538,6 +648,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.insertOne',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
 
@@ -556,10 +668,22 @@ export class MongoDBCollection<T extends Document = Document> {
           collection: this.collectionName,
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'insertOne',
+            collection: this.collectionName,
+            database: this.databaseName,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const result = await this.client.execute(() =>
             this.collection.insertOne(document, options)
           );
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -568,7 +692,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'insertOne', collection: this.collectionName }
           );
           this.client.metrics.increment(MetricNames.DOCUMENTS_WRITTEN, 1, {
@@ -582,8 +706,45 @@ export class MongoDBCollection<T extends Document = Document> {
           });
 
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'insertOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              documentCount: 1,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'insertOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return result;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'insertOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'insertOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('insertOne', error, span);
           throw error;
         }
@@ -604,6 +765,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.insertMany',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
         span.setAttribute('count', documents.length);
@@ -628,10 +791,23 @@ export class MongoDBCollection<T extends Document = Document> {
           count: documents.length,
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'insertMany',
+            collection: this.collectionName,
+            database: this.databaseName,
+            documentCount: documents.length,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const result = await this.client.execute(() =>
             this.collection.insertMany(documents, options)
           );
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -640,7 +816,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'insertMany', collection: this.collectionName }
           );
           this.client.metrics.increment(
@@ -657,8 +833,46 @@ export class MongoDBCollection<T extends Document = Document> {
 
           span.setAttribute('insertedCount', result.insertedCount);
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'insertMany',
+              collection: this.collectionName,
+              database: this.databaseName,
+              documentCount: result.insertedCount,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'insertMany',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return result;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'insertMany',
+              collection: this.collectionName,
+              database: this.databaseName,
+              documentCount: documents.length,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'insertMany',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('insertMany', error, span);
           throw error;
         }
@@ -688,6 +902,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.updateOne',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
 
@@ -708,10 +924,22 @@ export class MongoDBCollection<T extends Document = Document> {
           filter: this.sanitizeFilter(filter),
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'updateOne',
+            collection: this.collectionName,
+            database: this.databaseName,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const result = await this.client.execute(() =>
             this.collection.updateOne(filter, update, options)
           );
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -720,7 +948,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'updateOne', collection: this.collectionName }
           );
 
@@ -734,8 +962,46 @@ export class MongoDBCollection<T extends Document = Document> {
           span.setAttribute('modifiedCount', result.modifiedCount);
           span.setAttribute('upsertedCount', result.upsertedCount);
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'updateOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              matchedCount: result.matchedCount,
+              modifiedCount: result.modifiedCount,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'updateOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return result;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'updateOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'updateOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('updateOne', error, span);
           throw error;
         }
@@ -916,6 +1182,8 @@ export class MongoDBCollection<T extends Document = Document> {
       'mongodb.collection.deleteOne',
       async (span) => {
         const startTime = Date.now();
+        const correlationId = crypto.randomUUID();
+
         span.setAttribute('database', this.databaseName);
         span.setAttribute('collection', this.collectionName);
 
@@ -931,10 +1199,22 @@ export class MongoDBCollection<T extends Document = Document> {
           filter: this.sanitizeFilter(filter),
         });
 
+        // Emit telemetry: operation initiation
+        try {
+          this.telemetry.emitRequestStart('mongodb', correlationId, {
+            operation: 'deleteOne',
+            collection: this.collectionName,
+            database: this.databaseName,
+          });
+        } catch {
+          // Fail-open: suppress telemetry errors
+        }
+
         try {
           const result = await this.client.execute(() =>
             this.collection.deleteOne(filter, options)
           );
+          const latencyMs = Date.now() - startTime;
 
           // Record metrics
           this.client.metrics.increment(MetricNames.OPERATIONS_TOTAL, 1, {
@@ -943,7 +1223,7 @@ export class MongoDBCollection<T extends Document = Document> {
           });
           this.client.metrics.timing(
             MetricNames.OPERATION_LATENCY,
-            Date.now() - startTime,
+            latencyMs,
             { operation: 'deleteOne', collection: this.collectionName }
           );
 
@@ -955,8 +1235,45 @@ export class MongoDBCollection<T extends Document = Document> {
 
           span.setAttribute('deletedCount', result.deletedCount);
           span.setStatus('OK');
+
+          // Emit telemetry: operation completion
+          try {
+            this.telemetry.emitRequestComplete('mongodb', correlationId, {
+              operation: 'deleteOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              deletedCount: result.deletedCount,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'deleteOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           return result;
         } catch (error) {
+          const latencyMs = Date.now() - startTime;
+
+          // Emit telemetry: error
+          try {
+            this.telemetry.emitError('mongodb', correlationId, error as Error, {
+              operation: 'deleteOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+            });
+            this.telemetry.emitLatency('mongodb', correlationId, latencyMs, {
+              operation: 'deleteOne',
+              collection: this.collectionName,
+              database: this.databaseName,
+              error: true,
+            });
+          } catch {
+            // Fail-open: suppress telemetry errors
+          }
+
           this.handleError('deleteOne', error, span);
           throw error;
         }

@@ -23,6 +23,8 @@ import {
   parsePostgresError,
 } from '../errors/index.js';
 import { Observability, MetricNames } from '../observability/index.js';
+import { TelemetryEmitter } from '@integrations/telemetry-emitter';
+import { randomUUID } from 'crypto';
 
 // ============================================================================
 // Transaction Options
@@ -144,6 +146,9 @@ export class Transaction {
   /** Unique transaction identifier. */
   public readonly id: string;
 
+  /** Correlation ID for telemetry tracking. */
+  private readonly correlationId: string;
+
   /** Transaction isolation level. */
   public readonly isolation: IsolationLevel;
 
@@ -177,11 +182,25 @@ export class Transaction {
     observability: Observability
   ) {
     this.id = generateTransactionId();
+    this.correlationId = randomUUID();
     this.connection = connection;
     this.isolation = options.isolation;
     this.readOnly = options.readOnly;
     this.startedAt = new Date();
     this.observability = observability;
+
+    // Emit telemetry: Transaction start
+    try {
+      const telemetry = TelemetryEmitter.getInstance();
+      telemetry.emitRequestStart('postgresql', this.correlationId, {
+        operationType: 'transaction',
+        transactionId: this.id,
+        isolation: this.isolation,
+        readOnly: this.readOnly,
+      });
+    } catch {
+      // Fail-open: ignore telemetry errors
+    }
   }
 
   /**
@@ -455,15 +474,49 @@ export class Transaction {
         durationMs: transactionDuration,
         commitDurationMs: duration,
       });
+
+      // Emit telemetry: Transaction committed
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitRequestComplete('postgresql', this.correlationId, {
+          operationType: 'transaction',
+          transactionId: this.id,
+          outcome: 'committed',
+          queryCount: this.connection.queryCount,
+        });
+
+        // Emit latency event
+        telemetry.emitLatency('postgresql', this.correlationId, transactionDuration, {
+          operationType: 'transaction',
+          outcome: 'committed',
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
     } catch (error) {
       this.aborted = true;
       this.connection.inTransaction = false;
       this.connection.client.release();
 
+      const transactionDuration = Date.now() - this.startedAt.getTime();
+
       this.observability.logger.error('Transaction commit failed', {
         transactionId: this.id,
         error: error instanceof Error ? error.message : String(error),
       });
+
+      // Emit telemetry: Transaction commit error
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitError('postgresql', this.correlationId, error as Error, {
+          operationType: 'transaction',
+          transactionId: this.id,
+          outcome: 'commit_failed',
+          duration: transactionDuration,
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
 
       throw this.wrapError(error);
     }
@@ -510,15 +563,49 @@ export class Transaction {
         transactionId: this.id,
         durationMs: transactionDuration,
       });
+
+      // Emit telemetry: Transaction rolled back
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitRequestComplete('postgresql', this.correlationId, {
+          operationType: 'transaction',
+          transactionId: this.id,
+          outcome: 'rolled_back',
+          queryCount: this.connection.queryCount,
+        });
+
+        // Emit latency event
+        telemetry.emitLatency('postgresql', this.correlationId, transactionDuration, {
+          operationType: 'transaction',
+          outcome: 'rolled_back',
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
     } catch (error) {
       this.aborted = true;
       this.connection.inTransaction = false;
       this.connection.client.release();
 
+      const transactionDuration = Date.now() - this.startedAt.getTime();
+
       this.observability.logger.error('Transaction rollback failed', {
         transactionId: this.id,
         error: error instanceof Error ? error.message : String(error),
       });
+
+      // Emit telemetry: Transaction rollback error
+      try {
+        const telemetry = TelemetryEmitter.getInstance();
+        telemetry.emitError('postgresql', this.correlationId, error as Error, {
+          operationType: 'transaction',
+          transactionId: this.id,
+          outcome: 'rollback_failed',
+          duration: transactionDuration,
+        });
+      } catch {
+        // Fail-open: ignore telemetry errors
+      }
 
       throw this.wrapError(error);
     }

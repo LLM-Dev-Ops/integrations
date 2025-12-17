@@ -1,0 +1,22 @@
+{
+  "name": "ruvvector-service",
+  "version": "1.0.0",
+  "description": "Lightweight HTTP service for telemetry event ingestion and querying",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "init-db": "node dist/init-db.js"
+  },
+  "dependencies": {
+    "@integrations/database": "file:../shared/database",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.3.0"
+  }
+}

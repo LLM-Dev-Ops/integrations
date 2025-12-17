@@ -26,7 +26,8 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
-    "@integrations/primitives": "workspace:*"
+    "@integrations/primitives": "workspace:*",
+    "@integrations/telemetry-emitter": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

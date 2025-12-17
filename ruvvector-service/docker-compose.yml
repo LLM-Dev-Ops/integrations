@@ -1,0 +1,61 @@
+# Standalone docker-compose for ruvvector-service development
+# For production, use the root docker-compose.yml
+version: '3.8'
+
+services:
+  ruvvector-service:
+    build:
+      context: ..
+      dockerfile: ruvvector-service/Dockerfile
+    container_name: ruvvector-service-dev
+    ports:
+      - "${RUVVECTOR_SERVICE_PORT:-3100}:3100"
+    environment:
+      RUVVECTOR_SERVICE_PORT: ${RUVVECTOR_SERVICE_PORT:-3100}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ruvector}:${POSTGRES_PASSWORD:-ruvector_secret}@ruvector-postgres:5432/${POSTGRES_DB:-ruvector}
+      POSTGRES_HOST: ruvector-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-ruvector}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ruvector_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-ruvector}
+    depends_on:
+      ruvector-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - ruvvector-network
+
+  ruvector-postgres:
+    image: ruvnet/ruvector-postgres:latest
+    container_name: ruvector-postgres-dev
+    hostname: ruvector-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ruvector}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ruvector_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-ruvector}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ruvector -d ruvector -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ruvvector-network
+
+networks:
+  ruvvector-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

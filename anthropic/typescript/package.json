@@ -20,6 +20,9 @@
   },
   "keywords": ["anthropic", "claude", "api", "llm", "ai"],
   "license": "LicenseRef-LLM-DevOps-Permanent",
+  "dependencies": {
+    "@integrations/telemetry-emitter": "file:../../shared/telemetry-emitter"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0",

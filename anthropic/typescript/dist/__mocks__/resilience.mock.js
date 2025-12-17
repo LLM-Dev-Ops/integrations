@@ -63,7 +63,7 @@ export function mockResilienceOrchestratorResponse(orchestrator, response) {
  */
 export function mockResilienceOrchestratorWithRetries(orchestrator, failCount, error, successValue) {
     let attempts = 0;
-    orchestrator.execute.mockImplementation(async (fn) => {
+    orchestrator.execute.mockImplementation(async () => {
         attempts++;
         if (attempts <= failCount) {
             throw error;

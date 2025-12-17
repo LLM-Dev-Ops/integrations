@@ -16,7 +16,7 @@ export declare function createPdfContentFromBuffer(buffer: Buffer): DocumentCont
  * @param arrayBuffer - ArrayBuffer containing PDF data
  * @returns DocumentContent object for use in messages
  */
-export declare function createPdfContentFromArrayBuffer(arrayBuffer: ArrayBuffer): DocumentContent;
+export declare function createPdfContentFromArrayBuffer(arrayBuffer: ArrayBuffer | SharedArrayBuffer): DocumentContent;
 /**
  * Creates PDF content from a Uint8Array
  * @param bytes - Uint8Array containing PDF data

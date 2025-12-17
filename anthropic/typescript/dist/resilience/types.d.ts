@@ -47,6 +47,17 @@ export interface ResilienceConfig {
  */
 export type CircuitState = 'closed' | 'open' | 'half_open';
 /**
+ * Decision returned by retry hooks to control retry behavior
+ */
+export type RetryDecision = {
+    type: 'default';
+} | {
+    type: 'retry';
+    delayMs: number;
+} | {
+    type: 'abort';
+};
+/**
  * Hook for custom retry behavior
  */
 export interface RetryHook {
@@ -55,8 +66,9 @@ export interface RetryHook {
      * @param attempt - The attempt number (1-indexed)
      * @param error - The error that triggered the retry
      * @param delayMs - The calculated delay before retry
+     * @returns RetryDecision to control retry behavior, or void for default behavior
      */
-    onRetry(attempt: number, error: Error, delayMs: number): void;
+    onRetry(attempt: number, error: Error, delayMs: number): RetryDecision | void;
 }
 /**
  * Hook for circuit breaker state changes

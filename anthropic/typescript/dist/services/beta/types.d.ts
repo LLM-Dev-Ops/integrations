@@ -1,23 +1,9 @@
-import type { MessageParam, Tool } from '../messages/types.js';
-export interface ThinkingConfig {
-    type: 'enabled';
-    budget_tokens: number;
-}
-export interface ThinkingBlock {
-    type: 'thinking';
-    thinking: string;
-}
-export interface PdfSource {
-    type: 'base64';
-    media_type: 'application/pdf';
-    data: string;
-}
+import type { MessageParam, Tool, CacheControl, ThinkingConfig, ThinkingBlock, ImageSource, DocumentSource } from '../messages/types.js';
+export type { CacheControl, ThinkingConfig, ThinkingBlock, ImageSource };
+export type PdfSource = DocumentSource;
 export interface DocumentContent {
     type: 'document';
     source: PdfSource;
-}
-export interface CacheControl {
-    type: 'ephemeral';
 }
 export interface SystemPromptWithCache {
     text: string;
@@ -57,9 +43,4 @@ export type ComputerToolResultContent = {
     type: 'image';
     source: ImageSource;
 };
-export interface ImageSource {
-    type: 'base64';
-    media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
-    data: string;
-}
 //# sourceMappingURL=types.d.ts.map
