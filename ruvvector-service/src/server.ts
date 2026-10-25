@@ -3,24 +3,41 @@
  */
 
 import http from 'node:http';
-import { URL } from 'node:url';
-import { TelemetryEvent, QueryParams, HealthStatus, ApiResponse } from './types.js';
+import { TelemetryEvent, HealthStatus, ApiResponse } from './types.js';
 import { insertEvent, insertEvents, queryEvents, getDb } from './database.js';
+import { HttpError, MAX_BODY_BYTES, parseQueryParams, validatePayload } from './validation.js';
 
 /**
  * Parse JSON body from request
  */
-async function parseBody(req: http.IncomingMessage): Promise<unknown> {
+export async function parseBody(req: http.IncomingMessage): Promise<unknown> {
+  const contentType = req.headers['content-type']?.split(';', 1)[0]?.trim().toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(415, 'Content-Type must be application/json');
+  }
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let settled = false;
     req.on('data', (chunk) => {
-      body += chunk.toString();
+      if (settled) return;
+      const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += data.length;
+      if (size > MAX_BODY_BYTES) {
+        settled = true;
+        reject(new HttpError(413, `request body exceeds ${MAX_BODY_BYTES} bytes`));
+        return;
+      }
+      chunks.push(data);
     });
     req.on('end', () => {
+      if (settled) return;
+      const body = Buffer.concat(chunks).toString('utf8');
+      if (body.trim().length === 0) return reject(new HttpError(400, 'request body must not be empty'));
       try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch (error) {
-        reject(new Error('Invalid JSON'));
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new HttpError(400, 'request body must be valid JSON'));
       }
     });
     req.on('error', reject);
@@ -35,22 +52,11 @@ function sendJson(
   statusCode: number,
   data: unknown
 ): void {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'X-Content-Type-Options': 'nosniff',
+  });
   res.end(JSON.stringify(data));
-}
-
-/**
- * Validate telemetry event
- */
-function isValidEvent(obj: unknown): obj is TelemetryEvent {
-  if (!obj || typeof obj !== 'object') return false;
-  const event = obj as Partial<TelemetryEvent>;
-  return (
-    typeof event.correlationId === 'string' &&
-    typeof event.integration === 'string' &&
-    typeof event.eventType === 'string' &&
-    typeof event.timestamp === 'number'
-  );
 }
 
 /**
@@ -61,43 +67,21 @@ async function handleIngest(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const body = await parseBody(req);
-
-    // Handle both single event and batch
-    const events = Array.isArray(body) ? body : [body];
-
-    // Validate events
-    for (const event of events) {
-      if (!isValidEvent(event)) {
-        sendJson(res, 400, {
-          success: false,
-          error: 'Invalid event format. Required: correlationId, integration, eventType, timestamp',
-        } as ApiResponse);
-        return;
-      }
-    }
-
-    // Persist events asynchronously (fire and forget)
+    const events = validatePayload(await parseBody(req));
     if (events.length === 1) {
-      insertEvent(events[0]).catch((error) => {
-        console.error('Failed to insert event:', error);
-      });
+      await insertEvent(events[0]);
     } else {
-      insertEvents(events).catch((error) => {
-        console.error('Failed to insert events:', error);
-      });
+      await insertEvents(events);
     }
-
-    // Return immediately
     sendJson(res, 200, {
       success: true,
       data: { received: events.length },
     } as ApiResponse);
   } catch (error) {
-    console.error('Ingest error:', error);
-    sendJson(res, 500, {
+    if (!(error instanceof HttpError)) console.error('Ingest error:', error);
+    sendJson(res, error instanceof HttpError ? error.status : 500, {
       success: false,
-      error: 'Internal server error',
+      error: error instanceof HttpError ? error.message : 'Internal server error',
     } as ApiResponse);
   }
 }
@@ -110,41 +94,16 @@ async function handleQuery(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const params: QueryParams = {};
-
-    const integration = url.searchParams.get('integration');
-    if (integration) params.integration = integration;
-
-    const correlationId = url.searchParams.get('correlationId');
-    if (correlationId) params.correlationId = correlationId;
-
-    const eventType = url.searchParams.get('eventType');
-    if (eventType) params.eventType = eventType;
-
-    const from = url.searchParams.get('from');
-    if (from) params.from = parseInt(from, 10);
-
-    const to = url.searchParams.get('to');
-    if (to) params.to = parseInt(to, 10);
-
-    const limit = url.searchParams.get('limit');
-    if (limit) params.limit = parseInt(limit, 10);
-
-    const offset = url.searchParams.get('offset');
-    if (offset) params.offset = parseInt(offset, 10);
-
-    const events = await queryEvents(params);
-
+    const events = await queryEvents(parseQueryParams(req.url || '/query'));
     sendJson(res, 200, {
       success: true,
       data: events,
     } as ApiResponse<TelemetryEvent[]>);
   } catch (error) {
-    console.error('Query error:', error);
-    sendJson(res, 500, {
+    if (!(error instanceof HttpError)) console.error('Query error:', error);
+    sendJson(res, error instanceof HttpError ? error.status : 500, {
       success: false,
-      error: 'Internal server error',
+      error: error instanceof HttpError ? error.message : 'Internal server error',
     } as ApiResponse);
   }
 }
@@ -191,6 +150,7 @@ export function createServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
     const method = req.method;
     const url = req.url || '/';
+    const path = url.split('?', 1)[0];
 
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -205,9 +165,9 @@ export function createServer(port: number): http.Server {
     }
 
     // Route handling
-    if (method === 'POST' && url === '/ingest') {
+    if (method === 'POST' && path === '/ingest') {
       handleIngest(req, res);
-    } else if (method === 'GET' && url.startsWith('/query')) {
+    } else if (method === 'GET' && path === '/query') {
       handleQuery(req, res);
     } else if (method === 'GET' && url === '/health') {
       handleHealth(req, res);
