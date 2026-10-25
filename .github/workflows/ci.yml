@@ -134,6 +134,17 @@ jobs:
       - name: Run lint
         run: npm run lint --if-present
 
+      - name: Build telemetry runtime
+        run: |
+          npm run build --workspace=@integrations/database
+          npm run build --workspace=@integrations/telemetry-emitter
+
+      - name: Test RuvVector service boundaries
+        run: npm test --workspace=ruvvector-service
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
   # Docker Compose validation
   docker-compose-test:
     name: Docker Compose Validation
